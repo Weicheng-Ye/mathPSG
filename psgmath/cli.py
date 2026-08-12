@@ -13,6 +13,7 @@ from .catalogue_schema import canonical_json
 from .live_catalogue import LiveCatalogue
 from .live_evidence import build_evidence
 from .local_gap import host_provenance, probe_gap
+from .live_classify import classification_result_mapping, classify
 from .solver_status import solver_capabilities
 
 
@@ -68,6 +69,18 @@ def build_parser() -> argparse.ArgumentParser:
     evidence.add_argument("--mode", choices=("spatial", "onsite-time"), required=True)
     evidence.add_argument("--timeout", type=int, default=300)
 
+    calculate = commands.add_parser(
+        "classify", help="calculate one joint Z2 or U1 PSG classification"
+    )
+    _add_runtime_arguments(calculate, cache=True)
+    calculate.add_argument("--it-number", type=int, required=True, choices=range(1, 231))
+    calculate.add_argument("--wps", nargs="+", required=True)
+    calculate.add_argument("--igg", choices=("Z2", "U1"), default="Z2")
+    calculate.add_argument("--time-reversal", action="store_true")
+    calculate.add_argument("--setting")
+    calculate.add_argument("--details", action="store_true")
+    calculate.add_argument("--timeout", type=int, default=300)
+
     commands.add_parser(
         "capabilities", help="report exact solver and public-API boundaries"
     )
@@ -114,6 +127,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if arguments.command == "capabilities":
             _write(dict(solver_capabilities()))
+            return 0
+        if arguments.command == "classify":
+            result = classify(
+                arguments.it_number,
+                arguments.wps,
+                igg=arguments.igg,
+                time_reversal=arguments.time_reversal,
+                setting=arguments.setting,
+                details=arguments.details,
+                gap=arguments.gap,
+                cache=arguments.cache,
+                timeout=arguments.timeout,
+            )
+            _write(classification_result_mapping(result))
             return 0
         runtime = probe_gap(arguments.gap)
         if arguments.command == "doctor":

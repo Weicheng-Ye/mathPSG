@@ -62,6 +62,21 @@ class ExtractionBoundaryTests(unittest.TestCase):
             actual = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
             self.assertEqual(actual, expected["standalone_sha256"], relative)
 
+    def test_restored_modules_retain_exact_source_provenance(self) -> None:
+        inventory = json.loads(
+            (ROOT / "EXTRACTED_SOURCES.json").read_text(encoding="utf-8")
+        )["files"]
+        expected_sources = {
+            "psgmath/catalogue_loader.py": "a1b22f9a5248a01e5de1a0b6a53aef0287c8b4c198b073178642796f7022be2e",
+            "psgmath/query.py": "5f88e8e0580f0288d523836be8e1cb855390abfbffcc5461d5995961b70cf9d7",
+            "psgmath/certified_classifier.py": "88ca499fe668085049b9be8ae5544ff27c380c8a6f0a3d530eaa59f88276efc1",
+        }
+        for relative, source_sha256 in expected_sources.items():
+            with self.subTest(relative=relative):
+                row = inventory[relative]
+                self.assertEqual(row["source_path"], relative)
+                self.assertEqual(row["source_sha256"], source_sha256)
+
 
 if __name__ == "__main__":
     unittest.main()

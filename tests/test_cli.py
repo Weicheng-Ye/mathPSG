@@ -8,6 +8,11 @@ import tempfile
 import unittest
 from unittest import mock
 
+from psgmath.live_classify import (
+    HostNativeClassificationResult,
+    HostRuntimeProvenance,
+)
+from psgmath.classification_schema import FrozenJSONObject
 from psgmath import cli
 from psgmath.cli import build_parser, main
 
@@ -22,9 +27,41 @@ class CLITests(unittest.TestCase):
 
     def test_cli_has_only_implemented_commands(self) -> None:
         help_text = build_parser().format_help()
-        for command in ("doctor", "catalogue", "evidence", "capabilities"):
+        for command in (
+            "doctor", "catalogue", "evidence", "classify", "capabilities"
+        ):
             self.assertIn(command, help_text)
-        self.assertNotIn("classify", help_text)
+
+    def test_classify_cli_matches_public_python_result(self) -> None:
+        expected = HostNativeClassificationResult(
+            request=FrozenJSONObject((("space_group", 1),)),
+            class_count=3,
+            continuous=False,
+            summaries=(),
+            details=None,
+            certification_status="host-native",
+            runtime=HostRuntimeProvenance(
+                certification_status="host-native",
+                gap_version="4.15.1",
+                gap_packages=(("cryst", "4.1.30"),),
+                gap_executable_sha256="sha256:" + "0" * 64,
+                python_version="3.14.6",
+                package_version="0.1.0",
+                source_inventory_digest="sha256:" + "1" * 64,
+            ),
+        )
+        with mock.patch("psgmath.cli.classify", return_value=expected) as calculate:
+            code, stdout, stderr = self.run_cli(
+                "classify", "--it-number", "1", "--wps", "a", "--igg", "Z2"
+            )
+
+        self.assertEqual((code, stderr), (0, ""))
+        output = json.loads(stdout)
+        self.assertEqual(output["class_count"], 3)
+        self.assertEqual(output["request"]["space_group"], 1)
+        self.assertEqual(output["runtime"]["gap_packages"], {"cryst": "4.1.30"})
+        calculate.assert_called_once()
+        self.assertEqual(calculate.call_args.args, (1, ["a"]))
 
     def test_cli_runtime_files_are_packaged_below_psgmath(self) -> None:
         package = Path(cli.__file__).resolve().parent

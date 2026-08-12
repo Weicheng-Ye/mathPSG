@@ -1439,11 +1439,13 @@ def _derive_sector_material(
             item.bar_equivalence,
             cocycle,
             coefficient_character=local_rho,
+            mod_one=True,
         )
         coordinate_report = verify_cochain_coordinate_certificate(
             item.bar_equivalence,
             cocycle,
             coordinate,
+            mod_one=True,
         )
         if not coordinate_report.valid or not coordinate.mod_one:
             raise ValueError(
@@ -1728,6 +1730,7 @@ def _validate_sector_problem(
             binding.bar_equivalence,
             cocycle,
             binding.coordinate_certificate,
+            mod_one=True,
         )
         if not report.valid or not binding.coordinate_certificate.mod_one:
             raise ValueError(

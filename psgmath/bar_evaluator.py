@@ -1741,6 +1741,137 @@ def replay_gap_inclusion_batch_artifact(
     )
 
 
+def restore_diagnostic_gap_batch_execution(
+    spec: GapInclusionBatchSpec,
+    raw_output: bytes,
+    attestation_mappings: Sequence[Mapping[str, object]],
+    *,
+    expected_resolved_launcher_digest: str,
+) -> GapBatchLauncherExecution:
+    """Restore a diagnostic batch capability from canonical cached evidence.
+
+    This performs the same pure batch/member replay as the live launcher but
+    never executes GAP and can never restore release certification.
+    """
+
+    verify_gap_inclusion_batch_spec(spec)
+    if (
+        type(expected_resolved_launcher_digest) is not str
+        or _DIGEST_RE.fullmatch(expected_resolved_launcher_digest) is None
+    ):
+        raise ValueError("expected restored launcher digest must be sha256")
+    replay = replay_gap_inclusion_batch_artifact(spec, raw_output)
+    mappings = tuple(attestation_mappings)
+    if len(mappings) != len(replay.members):
+        raise ValueError("cached diagnostic attestations do not cover the batch")
+    attestations: list[LauncherExecutionAttestation] = []
+    for index, (mapping, member) in enumerate(
+        zip(mappings, replay.members, strict=True)
+    ):
+        if not isinstance(mapping, Mapping):
+            raise TypeError("cached diagnostic attestation must be an object")
+        if (
+            mapping.get("record_type") != "task5-launcher-execution-attestation"
+            or mapping.get("schema_version") != 1
+            or mapping.get("release_certified") is not False
+            or mapping.get("runtime_manifest_digest") is not None
+            or mapping.get("exit_status") != 0
+            or mapping.get("resolved_launcher_digest")
+            != expected_resolved_launcher_digest
+        ):
+            raise ValueError("cached batch cannot restore release or failed authority")
+        attestation = _make_launcher_execution_attestation(
+            request_input_digest=mapping["request_input_digest"],
+            raw_output_digest=mapping["raw_output_digest"],
+            gap_inclusion_projection_digest=mapping[
+                "gap_inclusion_projection_digest"
+            ],
+            process_stdout_digest=mapping["process_stdout_digest"],
+            process_stderr_digest=mapping["process_stderr_digest"],
+            resolved_launcher_digest=mapping["resolved_launcher_digest"],
+            backend_observation_digest=mapping["backend_observation_digest"],
+            runtime_manifest_digest=None,
+            exit_status=0,
+            release_certified=False,
+        )
+        if (
+            launcher_execution_attestation_mapping(attestation) != dict(mapping)
+            or attestation.raw_output_digest != member.raw_output_digest
+            or attestation.gap_inclusion_projection_digest
+            != member.projection_digest
+            or attestation.request_input_digest != replay.request_input_digest
+        ):
+            raise ValueError(
+                f"cached diagnostic attestation {index} differs from pure replay"
+            )
+        attestations.append(attestation)
+
+    provenance_members = tuple(
+        GapBatchMemberProvenance(
+            member_index=index,
+            inclusion_id=member.inclusion_id,
+            member_input_digest=member.member_input_digest,
+            raw_output_digest=member.raw_output_digest,
+            projection_digest=member.projection_digest,
+            attestation_id=attestation.attestation_id,
+        )
+        for index, (member, attestation) in enumerate(
+            zip(replay.members, attestations, strict=True)
+        )
+    )
+    provenance_identity = {
+        "batch_input_digest": replay.batch_input_digest,
+        "batch_raw_output_digest": replay.batch_raw_output_digest,
+        "members": [
+            _batch_member_provenance_mapping(member)
+            for member in provenance_members
+        ],
+        "request_input_digest": replay.request_input_digest,
+    }
+    provenance = GapBatchExecutionProvenance(
+        batch_id=_task5_domain_digest(
+            "task5-gap-batch-execution-provenance-v1", provenance_identity
+        ),
+        batch_input_digest=replay.batch_input_digest,
+        batch_raw_output_digest=replay.batch_raw_output_digest,
+        request_input_digest=replay.request_input_digest,
+        batch_input=replay.batch_input,
+        request_input=replay.request_input,
+        raw_output=replay.raw_output,
+        spec=spec,
+        members=provenance_members,
+        _factory_seal=_GAP_BATCH_EXECUTION_PROVENANCE_FACTORY_SEAL,
+    )
+    children = tuple(
+        GapLauncherExecution(
+            member.raw_output,
+            attestation,
+            _GAP_LAUNCHER_EXECUTION_FACTORY_SEAL,
+            batch_input_digest=replay.batch_input_digest,
+            batch_raw_output_digest=replay.batch_raw_output_digest,
+            batch_member_input_digest=member.member_input_digest,
+            batch_member_index=index,
+            batch_provenance=provenance,
+        )
+        for index, (member, attestation) in enumerate(
+            zip(replay.members, attestations, strict=True)
+        )
+    )
+    result = GapBatchLauncherExecution(
+        raw_output=replay.raw_output,
+        spec=spec,
+        request_input_digest=replay.request_input_digest,
+        member_executions=children,
+        provenance=provenance,
+        _factory_seal=_GAP_BATCH_LAUNCHER_EXECUTION_FACTORY_SEAL,
+    )
+    _register_gap_batch_execution_provenance(provenance)
+    for child in children:
+        _register_gap_launcher_execution(child, result)
+    _register_gap_batch_launcher_execution(result)
+    return verify_gap_batch_launcher_execution(result, require_release=False)
+
+
 def export_gap_inclusion_batch_raw(
     action: CertifiedSpaceGroupAction,
     inclusions: Sequence[LiteralStabilizerInclusion],
@@ -2827,6 +2958,7 @@ def assemble_gap_inclusion_fixture(
     target_group_id: str,
     source_construction: str,
     target_construction: str,
+    target_parent_spatial_resolution_id: str | None = None,
     inclusion_id: str,
     literal_stabilizer_digest: str,
     literal_element_digest: str,
@@ -2950,6 +3082,7 @@ def assemble_gap_inclusion_fixture(
         backend_lock_digest=backend_lock,
         backend_environment_id=backend_environment,
         runtime_provenance_digest=runtime_provenance,
+        parent_spatial_resolution_id=target_parent_spatial_resolution_id,
     )
     if _parse_matrix(
         raw_export["lookahead_boundary"],
@@ -3422,10 +3555,30 @@ def _target_group_multiplier(resolution: FreeResolutionCertificate):
             return cached
         _normal_key(resolution, left)
         _normal_key(resolution, right)
-        left_affine = _evaluate_pcp_word(left, normal_form)
-        right_affine = _evaluate_pcp_word(right, normal_form)
+        graded = resolution.group_id.endswith("+onsite-T")
+
+        def split(value: str) -> tuple[str, int]:
+            if not graded:
+                return value, 0
+            if value == "T":
+                return "1", 1
+            if value.endswith("+T"):
+                spatial = value[:-2]
+                if not spatial or spatial == "1" or "T" in spatial:
+                    raise ValueError("invalid onsite-time-reversal normal form")
+                return spatial, 1
+            if "T" in value:
+                raise ValueError("invalid onsite-time-reversal normal form")
+            return value, 0
+
+        left_spatial, left_time = split(left)
+        right_spatial, right_time = split(right)
+        left_affine = _evaluate_pcp_word(left_spatial, normal_form)
+        right_affine = _evaluate_pcp_word(right_spatial, normal_form)
         product = _compose_affine(right_affine, left_affine)
         result = word(decoder(product))
+        if graded and left_time ^ right_time:
+            result = "T" if result == "1" else result + "+T"
         cache[(left, right)] = result
         return result
 
@@ -4335,10 +4488,19 @@ def coordinate_bar_cocycle(
     cocycle: Mapping[Sequence[str], object],
     *,
     coefficient_character: GF2Character | None = None,
+    mod_one: bool | None = None,
 ) -> CochainCoordinateCertificate:
-    mod_one = any(isinstance(value, Phase) for value in cocycle.values())
+    if mod_one is not None and type(mod_one) is not bool:
+        raise TypeError("mod_one must be boolean or None")
+    inferred_mod_one = any(isinstance(value, Phase) for value in cocycle.values())
+    if mod_one is None:
+        mod_one = inferred_mod_one
+    elif cocycle and mod_one is not inferred_mod_one:
+        raise ValueError("mod_one differs from the supplied cocycle coefficients")
     normalized = {tuple(key): _coefficient(value) for key, value in cocycle.items()}
     degrees = {len(key) for key in normalized}
+    if not degrees and not equivalence.normalized_tuples(2):
+        degrees = {2}
     if len(degrees) != 1:
         raise ValueError("bar cocycle must have one homogeneous degree")
     degree = degrees.pop()
@@ -4406,9 +4568,22 @@ def verify_cochain_coordinate_certificate(
     equivalence: BarResolutionEquivalence,
     cocycle: Mapping[Sequence[str], object],
     certificate: CochainCoordinateCertificate,
+    *,
+    mod_one: bool | None = None,
 ) -> VerificationReport:
     issues: list[VerificationIssue] = []
-    mod_one = any(isinstance(value, Phase) for value in cocycle.values())
+    if mod_one is not None and type(mod_one) is not bool:
+        raise TypeError("mod_one must be boolean or None")
+    inferred_mod_one = any(isinstance(value, Phase) for value in cocycle.values())
+    if mod_one is None:
+        mod_one = inferred_mod_one
+    elif cocycle and mod_one is not inferred_mod_one:
+        issues.append(
+            VerificationIssue(
+                "coordinate_roundtrip_failed",
+                "coefficient quotient differs from supplied cocycle values",
+            )
+        )
     normalized = {tuple(key): _coefficient(value) for key, value in cocycle.items()}
     if certificate.resolution_id != equivalence.resolution_id or certificate.source_cocycle_digest != _cocycle_digest(normalized):
         issues.append(VerificationIssue("coordinate_binding_mismatch", "coordinate certificate does not bind resolution and cocycle"))
@@ -4495,6 +4670,7 @@ __all__ = [
     "make_bar_resolution_equivalence",
     "make_target_bar_resolution_equivalence",
     "run_gap_inclusion_export",
+    "restore_diagnostic_gap_batch_execution",
     "verify_gap_batch_launcher_execution",
     "verify_gap_batch_member_execution",
     "verify_gap_batch_execution_provenance",
