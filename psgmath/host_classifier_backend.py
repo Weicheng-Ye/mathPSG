@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import InitVar, dataclass, field
 import hashlib
+import itertools
 import json
 from pathlib import Path
 from types import MappingProxyType
@@ -17,7 +18,9 @@ from .bar_evaluator import (
     GapBatchLauncherExecution,
     assemble_gap_inclusion_fixture,
     export_gap_inclusion_batch_raw,
+    make_gap_inclusion_batch_spec,
     replay_gap_inclusion_batch_artifact,
+    restore_diagnostic_gap_batch_execution,
     verify_gap_batch_execution_provenance,
     verify_gap_batch_launcher_execution,
     verify_gap_batch_member_execution,
@@ -28,6 +31,8 @@ from .certified_classifier import (
     ArtifactPlan,
     BackendIdentity,
     ClassifierBackendAuthority,
+    JointLayerMaterial,
+    LocalSkeletonEvidence,
     LocalSkeletonPlan,
     artifact_semantic_digest,
     make_u1_local_skeleton_evidence,
@@ -45,6 +50,7 @@ from .cochains import (
     diagnostic_residue_digests,
     dumps_inclusion_chain_map_certificate,
     make_inclusion_chain_map_certificate,
+    launcher_execution_attestation_mapping,
     pcp_presentation_relators,
     task5_diagnostic_observed_outcome,
 )
@@ -342,6 +348,30 @@ class HostNativeInclusionArtifact:
             raise ValueError("host inclusion artifact has inconsistent bindings")
 
 
+@dataclass(frozen=True, slots=True)
+class HostNativeResolvedInclusion:
+    """One inclusion rebound to a distinct occupied atom-orbit instance."""
+
+    instance_id: str
+    source: HostNativeInclusionArtifact
+
+    def __post_init__(self) -> None:
+        if type(self.instance_id) is not str or not self.instance_id:
+            raise ValueError("resolved host inclusion requires an instance ID")
+        if type(self.source) is not HostNativeInclusionArtifact:
+            raise TypeError("resolved host inclusion requires a typed source")
+
+    @property
+    def certificate_id(self) -> str:
+        return _digest(
+            "resolved-host-inclusion",
+            {
+                "inclusion_certificate_id": self.source.inclusion.certificate_id,
+                "instance_id": self.instance_id,
+            },
+        )
+
+
 @dataclass(frozen=True, slots=True, weakref_slot=True)
 class HostNativeAmbientArtifact:
     resolution: object
@@ -620,7 +650,12 @@ def assemble_host_ambient_artifact(
     catalogue_digest = catalogue_record_authority_digest(
         group_id=target_group_id,
         catalogue_action_digest=request.action.action_digest,
-        inclusions=certificate.transported_stabilizers,
+        inclusions=tuple(
+            sorted(
+                certificate.transported_stabilizers,
+                key=lambda item: item.inclusion_id,
+            )
+        ),
     )
     transported_by_id = {
         item.inclusion_id: item for item in certificate.transported_stabilizers
@@ -883,6 +918,124 @@ def build_host_source_evidence(
     return verify_host_source_evidence(result)
 
 
+def _host_source_evidence_mapping(
+    evidence: HostNativeSourceEvidence,
+) -> dict[str, object]:
+    checked = verify_host_source_evidence(evidence)
+    return {
+        "instance_wyckoff_ids": list(checked.instance_wyckoff_ids),
+        "member_attestations": [
+            launcher_execution_attestation_mapping(child.attestation)
+            for child in checked.task5_execution.member_executions
+        ],
+        "provenance": _plain_frozen(checked.provenance),
+        "record_type": "host-native-source-evidence",
+        "schema_version": 1,
+        "task4_request": json.loads(
+            canonical_gap_classifier_json(checked.task4_request)
+        ),
+        "task4_response": json.loads(
+            canonical_gap_classifier_json(checked.task4_response)
+        ),
+        "task5_raw_output": json.loads(
+            checked.task5_execution.raw_output.decode("utf-8")
+        ),
+        "time_reversal": checked.time_reversal,
+        "unique_inclusion_ids": list(checked.unique_inclusion_ids),
+    }
+
+
+def _plain_frozen(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {str(key): _plain_frozen(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_plain_frozen(item) for item in value]
+    return value
+
+
+def _restore_host_source_evidence(
+    mapping: Mapping[str, object],
+    *,
+    runtime: GapRuntime,
+    timeout: int,
+) -> HostNativeSourceEvidence:
+    expected_fields = {
+        "instance_wyckoff_ids",
+        "member_attestations",
+        "provenance",
+        "record_type",
+        "schema_version",
+        "task4_request",
+        "task4_response",
+        "task5_raw_output",
+        "time_reversal",
+        "unique_inclusion_ids",
+    }
+    if set(mapping) != expected_fields:
+        raise ValueError("cached host source evidence fields differ")
+    if (
+        mapping["record_type"] != "host-native-source-evidence"
+        or mapping["schema_version"] != 1
+        or type(mapping["time_reversal"]) is not bool
+    ):
+        raise ValueError("cached host source evidence schema differs")
+    verified_runtime = _runtime_snapshot(runtime, timeout=timeout)
+    if mapping["provenance"] != host_provenance(verified_runtime):
+        raise ValueError("cached host source provenance differs from the runtime")
+    request = loads_gap_classifier_request(_canonical_json(mapping["task4_request"]))
+    response = loads_gap_classifier_response(_canonical_json(mapping["task4_response"]))
+    unique_ids = tuple(mapping["unique_inclusion_ids"])
+    instances = tuple(mapping["instance_wyckoff_ids"])
+    if (
+        any(type(item) is not str for item in unique_ids + instances)
+        or tuple(item.inclusion_id for item in request.inclusions) != unique_ids
+    ):
+        raise ValueError("cached host source inclusion bindings differ")
+    element_labels = tuple(
+        ("1",)
+        + tuple(f"g{index}" for index in range(1, len(inclusion.literal_elements)))
+        for inclusion in request.inclusions
+    )
+    spec = make_gap_inclusion_batch_spec(
+        request.action,
+        request.inclusions,
+        element_label_sequences=element_labels,
+        time_reversal=mapping["time_reversal"],
+        finite_group_ids=unique_ids,
+    )
+    raw_output = _canonical_json(mapping["task5_raw_output"])
+    attestations = mapping["member_attestations"]
+    if not isinstance(attestations, list) or any(
+        not isinstance(item, Mapping) for item in attestations
+    ):
+        raise TypeError("cached host source attestations are invalid")
+    execution = restore_diagnostic_gap_batch_execution(
+        spec,
+        raw_output,
+        tuple(attestations),
+        expected_resolved_launcher_digest=_bar._resolved_launcher_digest(
+            (verified_runtime.executable, "-q"),
+            Path(verified_runtime.executable).resolve(strict=True),
+        ),
+    )
+    replay = replay_gap_inclusion_batch_artifact(spec, raw_output)
+    frozen = _freeze_json(mapping["provenance"])
+    assert isinstance(frozen, Mapping)
+    result = HostNativeSourceEvidence(
+        instance_wyckoff_ids=instances,
+        unique_inclusion_ids=unique_ids,
+        time_reversal=mapping["time_reversal"],
+        task4_request=request,
+        task4_response=response,
+        task5_execution=execution,
+        task5_replay=replay,
+        provenance=frozen,
+        _construction_seal=_HOST_SOURCE_EVIDENCE_SEAL,
+    )
+    _register_host_source_evidence(result)
+    return verify_host_source_evidence(result)
+
+
 def _spatial_source_table(table: FiniteGroupTable) -> FiniteGroupTable:
     if not table.group_id.endswith("+onsite-T"):
         return table
@@ -907,6 +1060,60 @@ def _spatial_source_table(table: FiniteGroupTable) -> FiniteGroupTable:
         0,
         spatial_multiplication,
         table.inverse_indices[:size],
+    )
+
+
+def _replaying_artifact_plan(
+    *,
+    domain: str,
+    inputs: object,
+    produce,
+) -> ArtifactPlan:
+    """Cache only a semantic receipt; reconstruct and replay the typed value."""
+
+    holder: dict[str, object] = {}
+
+    def build() -> bytes:
+        value = produce()
+        payload = _canonical_json(
+            {
+                "record_type": "host-native-artifact-receipt",
+                "schema_version": 1,
+                "semantic_digest": artifact_semantic_digest(value),
+            }
+        )
+        holder["payload"] = payload
+        holder["value"] = value
+        return payload
+
+    def verify(data: bytes):
+        if type(data) is not bytes:
+            raise TypeError("host artifact receipt must be bytes")
+        try:
+            mapping = json.loads(data.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ValueError("host artifact receipt is not canonical JSON") from error
+        if (
+            not isinstance(mapping, Mapping)
+            or set(mapping)
+            != {"record_type", "schema_version", "semantic_digest"}
+            or mapping.get("record_type") != "host-native-artifact-receipt"
+            or mapping.get("schema_version") != 1
+            or _canonical_json(mapping) != data
+        ):
+            raise ValueError("host artifact receipt bytes differ")
+        if holder.get("payload") == data:
+            value = holder["value"]
+        else:
+            value = produce()
+        if artifact_semantic_digest(value) != mapping.get("semantic_digest"):
+            raise ValueError("host artifact semantic replay differs")
+        return value
+
+    return ArtifactPlan(
+        build=build,
+        verify=verify,
+        plan_digest=_digest(domain, inputs),
     )
 
 
@@ -953,6 +1160,129 @@ class HostNativeClassifierBackend(ClassifierBackendAuthority):
         object.__setattr__(self, "runtime", runtime)
         object.__setattr__(self, "repository_root", root)
         object.__setattr__(self, "identity", identity)
+
+    def ambient_resolution_plan(
+        self,
+        request,
+        resolved_orbits: tuple[ResolvedOrbit, ...],
+        timeout_seconds: int,
+    ) -> ArtifactPlan:
+        resolved = tuple(resolved_orbits)
+        if not resolved or any(type(item) is not ResolvedOrbit for item in resolved):
+            raise TypeError("host ambient stage requires resolved occupied orbits")
+        if type(timeout_seconds) is not int or timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
+        records = tuple(item.record for item in resolved)
+
+        def produce_sources():
+            if request.time_reversal:
+                spatial_source = build_host_source_evidence(
+                    records,
+                    runtime=self.runtime,
+                    time_reversal=False,
+                    timeout=timeout_seconds,
+                    repository_root=self.repository_root,
+                )
+                spatial = assemble_host_ambient_artifact(spatial_source)
+            else:
+                spatial_source = None
+                spatial = None
+            source = build_host_source_evidence(
+                records,
+                runtime=self.runtime,
+                time_reversal=request.time_reversal,
+                timeout=timeout_seconds,
+                repository_root=self.repository_root,
+            )
+            value = assemble_host_ambient_artifact(
+                source,
+                spatial_parent=spatial,
+            )
+            return spatial_source, source, value
+
+        holder: dict[str, object] = {}
+
+        def build() -> bytes:
+            spatial_source, source, value = produce_sources()
+            mapping = {
+                "record_type": "host-native-ambient-evidence",
+                "schema_version": 1,
+                "semantic_digest": artifact_semantic_digest(value),
+                "source": _host_source_evidence_mapping(source),
+                "spatial_source": (
+                    None
+                    if spatial_source is None
+                    else _host_source_evidence_mapping(spatial_source)
+                ),
+            }
+            payload = _canonical_json(mapping)
+            holder["payload"] = payload
+            holder["value"] = value
+            return payload
+
+        def verify(data: bytes):
+            try:
+                mapping = json.loads(data.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise ValueError("cached host ambient evidence is not JSON") from error
+            if (
+                not isinstance(mapping, Mapping)
+                or set(mapping)
+                != {
+                    "record_type",
+                    "schema_version",
+                    "semantic_digest",
+                    "source",
+                    "spatial_source",
+                }
+                or mapping.get("record_type") != "host-native-ambient-evidence"
+                or mapping.get("schema_version") != 1
+                or _canonical_json(mapping) != data
+            ):
+                raise ValueError("cached host ambient evidence bytes differ")
+            if holder.get("payload") == data:
+                value = holder["value"]
+            else:
+                raw_source = mapping["source"]
+                raw_spatial = mapping["spatial_source"]
+                if not isinstance(raw_source, Mapping):
+                    raise TypeError("cached host ambient source is invalid")
+                if raw_spatial is not None and not isinstance(raw_spatial, Mapping):
+                    raise TypeError("cached spatial ambient source is invalid")
+                spatial = (
+                    None
+                    if raw_spatial is None
+                    else assemble_host_ambient_artifact(
+                        _restore_host_source_evidence(
+                            raw_spatial,
+                            runtime=self.runtime,
+                            timeout=timeout_seconds,
+                        )
+                    )
+                )
+                source = _restore_host_source_evidence(
+                    raw_source,
+                    runtime=self.runtime,
+                    timeout=timeout_seconds,
+                )
+                value = assemble_host_ambient_artifact(
+                    source,
+                    spatial_parent=spatial,
+                )
+            if artifact_semantic_digest(value) != mapping.get("semantic_digest"):
+                raise ValueError("cached host ambient semantic replay differs")
+            return value
+
+        plan_inputs = {
+                "request": classification_request_digest(request),
+                "records": [item.record.wyckoff_id for item in resolved],
+                "runtime": self.identity.gap_environment_digest,
+            }
+        return ArtifactPlan(
+            build=build,
+            verify=verify,
+            plan_digest=_digest("host-ambient-plan", plan_inputs),
+        )
 
     def local_skeleton_plans(
         self,
@@ -1188,6 +1518,211 @@ class HostNativeClassifierBackend(ClassifierBackendAuthority):
                 restricted_rho=None,
                 derived_q=None,
             ),
+        )
+
+    def inclusion_plan(
+        self,
+        request,
+        resolved_orbit: ResolvedOrbit,
+        ambient: object,
+        timeout_seconds: int,
+    ) -> ArtifactPlan:
+        if type(resolved_orbit) is not ResolvedOrbit:
+            raise TypeError("host inclusion stage requires an exact ResolvedOrbit")
+        if type(timeout_seconds) is not int or timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
+
+        def produce():
+            checked = verify_host_ambient_artifact(ambient)  # type: ignore[arg-type]
+            if checked.source_evidence.time_reversal is not request.time_reversal:
+                raise ValueError("host inclusion time-reversal mode differs")
+            return HostNativeResolvedInclusion(
+                resolved_orbit.instance_id,
+                checked.inclusion_for(resolved_orbit.record.wyckoff_id),
+            )
+
+        return _replaying_artifact_plan(
+            domain="host-inclusion-plan",
+            inputs={
+                "ambient": artifact_semantic_digest(ambient),
+                "inclusion_id": resolved_orbit.record.wyckoff_id,
+                "instance_id": resolved_orbit.instance_id,
+                "request": classification_request_digest(request),
+            },
+            produce=produce,
+        )
+
+    def relative_layer_plan(
+        self,
+        request,
+        resolved_orbits: tuple[ResolvedOrbit, ...],
+        ambient: object,
+        local_skeletons: tuple[tuple[object, ...], ...],
+        inclusions: tuple[object, ...],
+        timeout_seconds: int,
+    ) -> ArtifactPlan:
+        if request.igg != "Z2":
+            raise NotImplementedError("host U1 relative classification is not yet available")
+        resolved = tuple(resolved_orbits)
+        local_rows = tuple(tuple(row) for row in local_skeletons)
+        inclusion_rows = tuple(inclusions)
+        if not (
+            resolved
+            and len(resolved) == len(local_rows) == len(inclusion_rows)
+            and all(len(row) == 1 for row in local_rows)
+        ):
+            raise ValueError("host relative stage requires one complete Z2 library per orbit")
+        if type(timeout_seconds) is not int or timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
+
+        def produce():
+            from .classification_schema import ObstructedBranch
+            from .relative_complex import RelativeProblem, assemble_relative_problem
+            from .z2_classifier import (
+                FiniteAffineStratum,
+                _certified_gf2_complex,
+                _certified_gf2_restriction,
+                certify_centralizer_action,
+                classify_z2_diagnostic,
+                coordinate_z2_defect,
+                coordinate_z2_marking_shift,
+                make_diagnostic_z2_branch,
+                make_diagnostic_z2_problem,
+            )
+
+            checked = verify_host_ambient_artifact(ambient)  # type: ignore[arg-type]
+            if checked.source_evidence.time_reversal is not request.time_reversal:
+                raise ValueError("host relative time-reversal mode differs")
+            evidences = tuple(row[0] for row in local_rows)
+            if any(
+                type(item) is not LocalSkeletonEvidence
+                or item.coefficient_kind != "Z2"
+                or item.diagnostic
+                or item.graded is not request.time_reversal
+                for item in evidences
+            ):
+                raise ValueError("host relative stage received invalid Z2 local evidence")
+            bound = tuple(inclusion_rows)
+            if any(type(item) is not HostNativeResolvedInclusion for item in bound):
+                raise TypeError("host relative stage requires resolved inclusions")
+            if tuple(item.instance_id for item in bound) != tuple(
+                item.instance_id for item in resolved
+            ):
+                raise ValueError("host relative inclusion instance order differs")
+            if tuple(item.instance_id for item in evidences) != tuple(
+                item.instance_id for item in resolved
+            ):
+                raise ValueError("host relative local instance order differs")
+
+            ambient_complex = _certified_gf2_complex(checked.resolution)
+            locals_ = tuple(
+                _certified_gf2_complex(item.source.inclusion.source_resolution)
+                for item in bound
+            )
+            restrictions = tuple(
+                _certified_gf2_restriction(
+                    item.source.inclusion,
+                    instance_id=item.instance_id,
+                    ambient=ambient_complex,
+                    local=local,
+                )
+                for item, local in zip(bound, locals_, strict=True)
+            )
+            branches = []
+            for skeleton_tuple in itertools.product(
+                *(item.skeletons for item in evidences)
+            ):
+                defects = tuple(
+                    coordinate_z2_defect(
+                        skeleton,
+                        item.source.bar_equivalence,
+                        checked.authority,
+                    )
+                    for skeleton, item in zip(
+                        skeleton_tuple, bound, strict=True
+                    )
+                )
+                source = RelativeProblem(
+                    "gf2",
+                    ambient_complex,
+                    locals_,
+                    restrictions,
+                    tuple(item.coordinates for item in defects),
+                )
+                matrices = assemble_relative_problem(source)
+                skeleton_ids = tuple(item.skeleton_id for item in skeleton_tuple)
+                actions = tuple(
+                    certify_centralizer_action(
+                        matrices,
+                        skeleton_ids=skeleton_ids,
+                        instance_id=inclusion.instance_id,
+                        skeleton=skeleton,
+                        component=component,
+                        marking_coordinates=coordinate_z2_marking_shift(
+                            component.marking_shift,
+                            inclusion.source.bar_equivalence,
+                            checked.authority,
+                        ),
+                        bar_equivalence=inclusion.source.bar_equivalence,
+                        authority=checked.authority,
+                    )
+                    for inclusion, skeleton in zip(bound, skeleton_tuple, strict=True)
+                    for component in skeleton.centralizer_components
+                )
+                branches.append(
+                    make_diagnostic_z2_branch(
+                        source_problem=source,
+                        matrices=matrices,
+                        skeleton_ids=skeleton_ids,
+                        centralizer_actions=actions,
+                    )
+                )
+            branches.sort(key=lambda item: (item.skeleton_ids, item.branch_id))
+            results = classify_z2_diagnostic(make_diagnostic_z2_problem(branches))
+            strata = tuple(
+                sorted(
+                    (item for item in results if type(item) is FiniteAffineStratum),
+                    key=lambda item: item.stratum_id,
+                )
+            )
+            obstructions = tuple(
+                sorted(
+                    (item for item in results if type(item) is ObstructedBranch),
+                    key=lambda item: item.stratum_id,
+                )
+            )
+            relative_digest = _digest(
+                "joint-host-z2-relative-source",
+                {
+                    "branch_ids": [item.branch_id for item in branches],
+                    "inclusion_ids": [item.certificate_id for item in bound],
+                    "instances": [item.instance_id for item in resolved],
+                },
+            )
+            return JointLayerMaterial(
+                branch_ids=tuple(
+                    sorted(item.stratum_id for item in strata + obstructions)
+                ),
+                framed_strata=strata,
+                local_arrows=(),
+                global_weyl_data=(),
+                obstructed_branches=obstructions,
+                failures=(),
+                source_artifact_digests=(("relative", relative_digest),),
+            )
+
+        return _replaying_artifact_plan(
+            domain="host-relative-z2-plan",
+            inputs={
+                "ambient": artifact_semantic_digest(ambient),
+                "inclusions": [artifact_semantic_digest(item) for item in inclusions],
+                "locals": [
+                    [artifact_semantic_digest(item) for item in row]
+                    for row in local_skeletons
+                ],
+                "request": classification_request_digest(request),
+            },
+            produce=produce,
         )
 
 

@@ -1287,7 +1287,7 @@ def certify_centralizer_action(
     if (
         stop - start != len(expected.coordinates)
         or matrices.certificate.local_complex_ids[orbit_index]
-        != expected.resolution_id
+        != _certified_gf2_complex(bar_equivalence.resolution).complex_id
     ):
         raise CertificateInvalidError(
             "certificate_invalid: marking coordinates bind another local cochain slice"
@@ -3288,10 +3288,10 @@ def _solve_z2_branch_diagnostic(
             raise CertificateInvalidError(
                 "certificate_invalid: centralizer action is not bound to this stratum"
             )
-    actions = tuple(residual_actions) + tuple(
+    supplied_actions = tuple(residual_actions) + tuple(
         action.quotient_action for action in certified_actions
     )
-    for action in actions:
+    for action in supplied_actions:
         if type(action) is not GF2AffineArrow:
             raise TypeError("residual actions must be GF2AffineArrow values")
         if (
@@ -3302,9 +3302,9 @@ def _solve_z2_branch_diagnostic(
             raise CertificateInvalidError(
                 "certificate_invalid: residual action must be an invertible quotient endomorphism"
             )
-    action_ids = tuple(sorted(_arrow_id(action) for action in actions))
-    if len(set(action_ids)) != len(action_ids):
-        raise CertificateInvalidError("certificate_invalid: duplicate residual action")
+    actions_by_id = {_arrow_id(action): action for action in supplied_actions}
+    action_ids = tuple(sorted(actions_by_id))
+    actions = tuple(actions_by_id[identifier] for identifier in action_ids)
     cross_boundaries = tuple(cross_skeleton_arrows)
     for boundary in cross_boundaries:
         if type(boundary) is not Z2CrossSkeletonArrow:
