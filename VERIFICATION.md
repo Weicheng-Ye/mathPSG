@@ -22,7 +22,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -W error::ResourceWarning \
   -m unittest discover -s tests -v
 ```
 
-Result: 46 tests passed in 52.217 seconds; zero failures, errors, or skips.
+Result: 47 tests passed in 60.469 seconds; zero failures, errors, or skips.
 
 The suite covers extraction boundaries, source-inventory replay, runtime probe
 parsing and a real probe, live SG 1 generation/cache reuse, Task4 conversion

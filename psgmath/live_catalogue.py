@@ -10,9 +10,11 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import stat
 import subprocess
 import tempfile
+import time
 from types import MappingProxyType
 from typing import Mapping
 
@@ -56,6 +58,12 @@ class _DisplayIndex:
     source_sha256: str
 
 
+@dataclass(frozen=True, slots=True)
+class _ActionBindings:
+    groups: Mapping[str, Mapping[str, str]]
+    source_sha256: str
+
+
 class LiveCatalogue:
     """Generate one IT-number catalogue at a time and cache exact records."""
 
@@ -82,10 +90,12 @@ class LiveCatalogue:
         exporter = root / "gap" / "catalogue" / "export_one.g"
         normalizer = root / "gap" / "catalogue" / "lib" / "normalize_affine.g"
         crosswalk = root / "resources" / "display-crosswalk.ndjson"
+        action_bindings = root / "resources" / "action-bindings.json"
         for path, label in (
             (exporter, "catalogue exporter"),
             (normalizer, "catalogue normalizer"),
             (crosswalk, "display crosswalk"),
+            (action_bindings, "action bindings"),
         ):
             if not path.is_file():
                 raise CatalogueError(f"{label} is unavailable")
@@ -98,6 +108,7 @@ class LiveCatalogue:
         self.normalizer = normalizer
         self.crosswalk = crosswalk
         self._display = self._load_display_index(crosswalk)
+        self._actions = self._load_action_bindings(action_bindings)
         self._memory: dict[int, tuple[CatalogueRecord, ...]] = {}
 
     @staticmethod
@@ -120,9 +131,48 @@ class LiveCatalogue:
             by_id[display.wyckoff_id] = display
         return _DisplayIndex(MappingProxyType(by_id), _sha256(data))
 
+    @staticmethod
+    def _load_action_bindings(path: Path) -> _ActionBindings:
+        data = path.read_bytes()
+        value = strict_json_loads(data.rstrip(b"\n"))
+        if (
+            not isinstance(value, dict)
+            or data != _canonical_bytes(value)
+            or set(value)
+            != {
+                "groups",
+                "record_type",
+                "schema_version",
+                "source_sha256",
+            }
+            or value["record_type"] != "mathpsg-standalone-action-bindings"
+            or value["schema_version"] != 1
+            or not isinstance(value["groups"], dict)
+            or set(value["groups"]) != {str(number) for number in range(1, 231)}
+        ):
+            raise CatalogueError("action bindings are malformed")
+        groups: dict[str, Mapping[str, str]] = {}
+        expected_fields = {
+            "space_group_action_sha256",
+        }
+        for number, binding in value["groups"].items():
+            if (
+                not isinstance(binding, dict)
+                or set(binding) != expected_fields
+                or any(
+                    not isinstance(digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
+                    for digest in binding.values()
+                )
+            ):
+                raise CatalogueError(f"action binding for SG {number} is malformed")
+            groups[number] = MappingProxyType(dict(binding))
+        return _ActionBindings(MappingProxyType(groups), _sha256(data))
+
     def _cache_key(self, it_number: int) -> str:
         value = {
             "crosswalk_sha256": self._display.source_sha256,
+            "action_bindings_sha256": self._actions.source_sha256,
             "exporter_sha256": _sha256(self.exporter.read_bytes()),
             "it_number": it_number,
             "normalizer_sha256": _sha256(self.normalizer.read_bytes()),
@@ -187,8 +237,48 @@ class LiveCatalogue:
         }
         if len(setting_actions) != 1:
             raise CatalogueError("catalogue cache mixes settings or actions")
+        expected_action = self._actions.groups[str(it_number)]
+        action_digest = _sha256(canonical_json(records[0].space_group_action))
+        if (
+            action_digest != expected_action["space_group_action_sha256"]
+        ):
+            raise CatalogueError("catalogue action provenance binding differs")
         self._require_display_coverage(records)
         return records
+
+    @staticmethod
+    def _file_size(path: Path) -> int:
+        try:
+            return path.stat().st_size
+        except FileNotFoundError:
+            return 0
+
+    def _wait_for_export(
+        self,
+        process: subprocess.Popen[bytes],
+        *,
+        stdout_path: Path,
+        stderr_path: Path,
+        export_path: Path,
+    ) -> int:
+        deadline = time.monotonic() + self.timeout_seconds
+        while True:
+            return_code = process.poll()
+            if return_code is not None:
+                return return_code
+            if (
+                time.monotonic() >= deadline
+                or self._file_size(stdout_path) > _MAX_CAPTURE_BYTES
+                or self._file_size(stderr_path) > _MAX_CAPTURE_BYTES
+                or self._file_size(export_path) > _MAX_EXPORT_BYTES
+            ):
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
+                raise CatalogueError("local GAP catalogue export exceeded its bounds")
+            time.sleep(0.02)
 
     def _read_cached(self, directory: Path, it_number: int) -> tuple[CatalogueRecord, ...]:
         if directory.is_symlink() or not directory.is_dir():
@@ -269,7 +359,7 @@ class LiveCatalogue:
                 with stdout_path.open("wb") as stdout_file, stderr_path.open(
                     "wb"
                 ) as stderr_file:
-                    completed = subprocess.run(
+                    process = subprocess.Popen(
                         (
                             self.runtime.executable,
                             "-q",
@@ -281,15 +371,21 @@ class LiveCatalogue:
                             os.fspath(export_path),
                         ),
                         cwd=self.repository_root,
-                        check=False,
                         stdout=stdout_file,
                         stderr=stderr_file,
-                        timeout=self.timeout_seconds,
+                        stdin=subprocess.DEVNULL,
+                        start_new_session=True,
                     )
-            except (OSError, subprocess.TimeoutExpired) as error:
+                    return_code = self._wait_for_export(
+                        process,
+                        stdout_path=stdout_path,
+                        stderr_path=stderr_path,
+                        export_path=export_path,
+                    )
+            except OSError as error:
                 raise CatalogueError("local GAP catalogue export failed") from error
             if (
-                completed.returncode != 0
+                return_code != 0
                 or stdout_path.stat().st_size > _MAX_CAPTURE_BYTES
                 or stderr_path.stat().st_size > _MAX_CAPTURE_BYTES
                 or not export_path.is_file()

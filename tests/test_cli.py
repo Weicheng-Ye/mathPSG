@@ -36,6 +36,9 @@ class CLITests(unittest.TestCase):
         self.assertTrue(
             (cli.RUNTIME_ROOT / "resources/display-crosswalk.ndjson").is_file()
         )
+        self.assertTrue(
+            (cli.RUNTIME_ROOT / "resources/action-bindings.json").is_file()
+        )
 
     def test_doctor_records_all_observed_versions(self) -> None:
         code, stdout, stderr = self.run_cli("doctor")

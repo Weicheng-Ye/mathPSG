@@ -80,7 +80,9 @@ to place generated data somewhere other than the platform user cache.
 Generated catalogues live outside the repository. Catalogue cache keys bind the
 IT number, GAP executable bytes, observed GAP/package versions, copied exporter
 and normalizer bytes, display-crosswalk bytes, and the complete standalone
-source inventory. Cached canonical JSON is re-parsed before reuse.
+source inventory. A compact 230-row action-binding table prevents a
+self-rehashed cache from changing the ambient space-group generators. Cached
+canonical JSON is re-parsed and semantically replayed before reuse.
 
 `EXTRACTED_SOURCES.json` records every retained file and, where it was copied,
 its original source digest. `mathpsg doctor` verifies that inventory and reports

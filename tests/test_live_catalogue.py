@@ -91,6 +91,46 @@ class LiveCatalogueTests(unittest.TestCase):
         with self.assertRaisesRegex(CatalogueError, "cache|group|coverage"):
             fresh.records(70)
 
+    def test_self_rehashed_action_mutation_is_rejected(self) -> None:
+        self.catalogue.records(1)
+        directory = next((self.cache / "catalogue").glob("sg1-*"))
+        geometry_path = directory / "wyckoff.ndjson"
+        record = json.loads(geometry_path.read_text(encoding="utf-8"))
+        generators = record["space_group_action"]["source_generators"]
+        generators.append(generators[0])
+        geometry = (
+            json.dumps(
+                record,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+            + b"\n"
+        )
+        metadata_path = directory / "record.json"
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        metadata["geometry_sha256"] = "sha256:" + hashlib.sha256(geometry).hexdigest()
+        geometry_path.write_bytes(geometry)
+        metadata_path.write_text(
+            json.dumps(
+                metadata,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        fresh = LiveCatalogue(
+            self.catalogue.runtime,
+            cache_root=self.cache,
+            repository_root=ROOT,
+        )
+        with self.assertRaisesRegex(CatalogueError, "action|provenance|binding"):
+            fresh.records(1)
+
 
 if __name__ == "__main__":
     unittest.main()

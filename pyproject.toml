@@ -26,4 +26,5 @@ psgmath = [
     "_assets/gap/catalogue/*.g",
     "_assets/gap/catalogue/lib/*.g",
     "_assets/resources/*.ndjson",
+    "_assets/resources/*.json",
 ]
