@@ -8,7 +8,11 @@ import unittest
 from unittest.mock import patch
 
 from psgmath.catalogue_loader import CatalogueIndex
-from psgmath.certified_classifier import classify_request
+from psgmath.certified_classifier import (
+    ArtifactPlan,
+    classify_request,
+    verify_u1_sector_coverage,
+)
 from psgmath.classifier_cache import ClassifierCache
 from psgmath.host_classifier_backend import HostNativeClassifierBackend
 from psgmath.live_catalogue import LiveCatalogue
@@ -257,6 +261,173 @@ class LiveJointZ2Tests(unittest.TestCase):
         self.assertEqual(
             observed,
             [("atom-0000", "atom-0001"), ("atom-0000", "atom-0001")],
+        )
+
+    def test_sg1_a_u1_returns_exhaustive_complete_sector_coverage(self) -> None:
+        request = resolve_occupancy_request(
+            1, ["a"], igg="U1", time_reversal=False, setting=None,
+            catalogue=self.catalogue,
+        )
+        result = classify_request(
+            request,
+            self.verified,
+            cache=ClassifierCache(self.root / "cache-sg1-u1"),
+            timeout_seconds=300,
+        )
+
+        self.assertEqual(result.record.layer.status, "complete")
+        self.assertFalse(result.record.layer.failures)
+        self.assertTrue(result.framed_strata)
+        self.assertTrue(
+            all(len(item.skeleton_ids) == 1 for item in result.framed_strata)
+        )
+        global_weyl = tuple(
+            item
+            for item in result.residual_groupoid.arrows
+            if item.kind == "global_weyl"
+        )
+        self.assertTrue(global_weyl)
+        self.assertTrue(
+            all(item.diagnostic for item in global_weyl)
+        )
+
+    def _assert_u1_joint_orbits(self, it_number: int, labels: list[str]) -> None:
+        verified = make_diagnostic_verified_catalogue(
+            CatalogueIndex(self.catalogue.records(it_number)), backend=self.backend
+        )
+        request = resolve_occupancy_request(
+            it_number, labels, igg="U1", time_reversal=False, setting=None,
+            catalogue=self.catalogue,
+        )
+        materials = []
+        original = self.backend.relative_layer_plan
+
+        def capture(
+            backend, requested, resolved, ambient, local_rows, inclusions, timeout
+        ):
+            plan = original(
+                requested, resolved, ambient, local_rows, inclusions, timeout
+            )
+
+            def verify(payload):
+                material = plan.verify(payload)
+                materials.append(material)
+                return material
+
+            return ArtifactPlan(
+                build=plan.build, verify=verify, plan_digest=plan.plan_digest
+            )
+
+        with patch.object(
+            HostNativeClassifierBackend,
+            "relative_layer_plan",
+            autospec=True,
+            side_effect=capture,
+        ) as relative:
+            result = classify_request(
+                request,
+                verified,
+                cache=ClassifierCache(self.root / f"cache-u1-joint-sg{it_number}"),
+                timeout_seconds=300,
+            )
+
+        self.assertEqual(relative.call_count, 1)
+        self.assertEqual(len(materials), 1)
+        self.assertEqual(result.record.layer.status, "complete")
+        material = materials[0]
+        self.assertIsNotNone(material.u1_sector_coverage)
+        expected_instances = ("atom-0000", "atom-0001")
+        for outcome in material.u1_sector_coverage.outcomes:
+            self.assertIsNotNone(outcome.problem)
+            problem = outcome.problem
+            self.assertEqual(len(outcome.skeleton_ids), 2)
+            self.assertEqual(
+                tuple(item.instance_id for item in problem.local_data),
+                expected_instances,
+            )
+            self.assertEqual(
+                tuple(item.instance_id for item in problem.bindings),
+                expected_instances,
+            )
+            self.assertEqual(
+                tuple(
+                    item.instance_id
+                    for item in problem.relative_problem.restrictions
+                ),
+                expected_instances,
+            )
+        self.assertTrue(material.global_weyl_data)
+        for _, row in material.global_weyl_data:
+            self.assertEqual(
+                tuple(item.instance_id for item in row), expected_instances
+            )
+            self.assertTrue(all(item.evaluator.diagnostic for item in row))
+            self.assertTrue(
+                all(
+                    item.evaluator.authority is None
+                    and item.evaluator.equivalence is None
+                    for item in row
+                )
+            )
+        with self.assertRaisesRegex(ValueError, "not release authority"):
+            verify_u1_sector_coverage(
+                material.u1_sector_coverage, allow_diagnostic=False
+            )
+        self.assertEqual(
+            tuple(item.instance_id for item in request.orbits), expected_instances
+        )
+        self.assertEqual(
+            tuple(
+                item.inclusion.inclusion_id
+                for item in material.u1_sector_coverage.outcomes[0].problem.local_data
+            ),
+            tuple(item.wyckoff_id for item in request.orbits),
+        )
+
+    def test_u1_repeated_orbits_stay_in_one_ordered_joint_problem(self) -> None:
+        self._assert_u1_joint_orbits(1, ["a", "a"])
+
+    def test_u1_distinct_orbits_use_one_ordered_joint_problem(self) -> None:
+        self._assert_u1_joint_orbits(2, ["a", "b"])
+
+    def test_u1_reverse_distinct_request_preserves_caller_order(self) -> None:
+        request = resolve_occupancy_request(
+            2, ["b", "a"], igg="U1", time_reversal=False, setting=None,
+            catalogue=self.catalogue,
+        )
+        self.assertEqual(
+            tuple(item.wyckoff_id for item in request.orbits),
+            tuple(
+                item.wyckoff_id
+                for item in reversed(
+                    resolve_occupancy_request(
+                        2, ["a", "b"], igg="U1", time_reversal=False,
+                        setting=None, catalogue=self.catalogue,
+                    ).orbits
+                )
+            ),
+        )
+        self.assertEqual(
+            tuple(item.instance_id for item in request.orbits),
+            ("atom-0000", "atom-0001"),
+        )
+
+    def test_sg1_onsite_time_u1_returns_complete_sector_coverage(self) -> None:
+        request = resolve_occupancy_request(
+            1, ["a"], igg="U1", time_reversal=True, setting=None,
+            catalogue=self.catalogue,
+        )
+        result = classify_request(
+            request,
+            self.verified,
+            cache=ClassifierCache(self.root / "cache-sg1-graded-u1"),
+            timeout_seconds=300,
+        )
+
+        self.assertEqual(result.record.layer.status, "complete")
+        self.assertFalse(result.record.layer.failures)
+        self.assertTrue(
+            result.framed_strata or result.record.layer.obstructed_branches
         )
 
 

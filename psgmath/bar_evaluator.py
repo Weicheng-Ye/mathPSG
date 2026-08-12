@@ -2958,6 +2958,7 @@ def assemble_gap_inclusion_fixture(
     target_group_id: str,
     source_construction: str,
     target_construction: str,
+    target_parent_spatial_resolution_id: str | None = None,
     inclusion_id: str,
     literal_stabilizer_digest: str,
     literal_element_digest: str,
@@ -3081,6 +3082,7 @@ def assemble_gap_inclusion_fixture(
         backend_lock_digest=backend_lock,
         backend_environment_id=backend_environment,
         runtime_provenance_digest=runtime_provenance,
+        parent_spatial_resolution_id=target_parent_spatial_resolution_id,
     )
     if _parse_matrix(
         raw_export["lookahead_boundary"],
@@ -4486,10 +4488,19 @@ def coordinate_bar_cocycle(
     cocycle: Mapping[Sequence[str], object],
     *,
     coefficient_character: GF2Character | None = None,
+    mod_one: bool | None = None,
 ) -> CochainCoordinateCertificate:
-    mod_one = any(isinstance(value, Phase) for value in cocycle.values())
+    if mod_one is not None and type(mod_one) is not bool:
+        raise TypeError("mod_one must be boolean or None")
+    inferred_mod_one = any(isinstance(value, Phase) for value in cocycle.values())
+    if mod_one is None:
+        mod_one = inferred_mod_one
+    elif cocycle and mod_one is not inferred_mod_one:
+        raise ValueError("mod_one differs from the supplied cocycle coefficients")
     normalized = {tuple(key): _coefficient(value) for key, value in cocycle.items()}
     degrees = {len(key) for key in normalized}
+    if not degrees and not equivalence.normalized_tuples(2):
+        degrees = {2}
     if len(degrees) != 1:
         raise ValueError("bar cocycle must have one homogeneous degree")
     degree = degrees.pop()
@@ -4557,9 +4568,22 @@ def verify_cochain_coordinate_certificate(
     equivalence: BarResolutionEquivalence,
     cocycle: Mapping[Sequence[str], object],
     certificate: CochainCoordinateCertificate,
+    *,
+    mod_one: bool | None = None,
 ) -> VerificationReport:
     issues: list[VerificationIssue] = []
-    mod_one = any(isinstance(value, Phase) for value in cocycle.values())
+    if mod_one is not None and type(mod_one) is not bool:
+        raise TypeError("mod_one must be boolean or None")
+    inferred_mod_one = any(isinstance(value, Phase) for value in cocycle.values())
+    if mod_one is None:
+        mod_one = inferred_mod_one
+    elif cocycle and mod_one is not inferred_mod_one:
+        issues.append(
+            VerificationIssue(
+                "coordinate_roundtrip_failed",
+                "coefficient quotient differs from supplied cocycle values",
+            )
+        )
     normalized = {tuple(key): _coefficient(value) for key, value in cocycle.items()}
     if certificate.resolution_id != equivalence.resolution_id or certificate.source_cocycle_digest != _cocycle_digest(normalized):
         issues.append(VerificationIssue("coordinate_binding_mismatch", "coordinate certificate does not bind resolution and cocycle"))

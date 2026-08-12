@@ -36,10 +36,12 @@ from .certified_classifier import (
     LocalSkeletonPlan,
     artifact_semantic_digest,
     make_u1_local_skeleton_evidence,
+    make_u1_sector_coverage,
     make_z2_local_skeleton_evidence,
 )
 from . import cochains as _cochains
 from .cochains import (
+    CertifiedCochainProblem,
     FiniteGroupTable,
     InclusionChainMapCertificate,
     SparseGroupRingMatrix,
@@ -53,6 +55,10 @@ from .cochains import (
     launcher_execution_attestation_mapping,
     pcp_presentation_relators,
     task5_diagnostic_observed_outcome,
+)
+from .certificates import (
+    BarCoordinateTrace,
+    make_diagnostic_bar_evaluator,
 )
 from .gf2 import GF2Character
 from .gap_classifier import (
@@ -74,6 +80,7 @@ from .local_gap import (
     source_inventory_digest,
 )
 from .query import ResolvedOrbit, classification_request_digest
+from .residual_groupoid import WeylOrbitData
 from .z2_local import (
     enumerate_graded_z2_skeletons,
     enumerate_spatial_z2_skeletons,
@@ -91,6 +98,49 @@ _PINNED_PACKAGES = MappingProxyType(
         "json": "2.2.3",
     }
 )
+
+
+def _diagnostic_bar_evaluator(
+    equivalence: BarResolutionEquivalence,
+    rho: GF2Character,
+):
+    """Materialize the host-only bar evaluator without retaining Task5 authority."""
+
+    dimensions = tuple(len(basis) for basis in equivalence.resolution.basis)
+    traces: list[BarCoordinateTrace] = []
+    for query in (
+        equivalence.normalized_tuples(1) + equivalence.normalized_tuples(2)
+    ):
+        dimension = dimensions[len(query)]
+        weights: list[int] = []
+        for column in range(dimension):
+            coordinates = [0] * dimension
+            coordinates[column] = 1
+            value = _bar.evaluate_bar_cochain(
+                equivalence,
+                coordinates,
+                query,
+                coefficient_character=rho,
+            )
+            if value.denominator != 1:
+                raise ArithmeticError(
+                    "host bar comparison produced a nonintegral functional"
+                )
+            weights.append(value.numerator)
+        traces.append(
+            BarCoordinateTrace.make(
+                equivalence.resolution_id,
+                len(query),
+                query,
+                weights,
+            )
+        )
+    return make_diagnostic_bar_evaluator(
+        resolution_id=equivalence.resolution_id,
+        finite_group=equivalence.finite_group,
+        coordinate_dimensions=dimensions,
+        traces=traces,
+    )
 _MAPPING_PROXY_TYPE = type(MappingProxyType({}))
 _HOST_SOURCE_EVIDENCE_SEAL = object()
 _HOST_SOURCE_EVIDENCE_REGISTRY: dict[
@@ -515,6 +565,8 @@ def _raw_member_components(
     literal_element_digest: str,
     transported_inclusion_digest: str,
     launcher_attestation: object,
+    target_construction: str,
+    target_parent_spatial_resolution_id: str | None,
 ):
     from .cochains import LauncherExecutionAttestation
     from .gap_classifier import AffinePCPIsomorphismCertificate
@@ -550,10 +602,11 @@ def _raw_member_components(
         affine_pcp_certificate=certificate,
         catalogue_record_digest=catalogue_record_digest,
         finite_group=None,
-        construction="hap-resolution-almost-crystal-group-4-lookahead5",
+        construction=target_construction,
         backend_lock_digest=diagnostic_digest,
         backend_environment_id=diagnostic_digest,
         runtime_provenance_digest=diagnostic_digest,
+        parent_spatial_resolution_id=target_parent_spatial_resolution_id,
     )
     equivalence = _bar.assemble_gap_bar_resolution_equivalence(
         raw["bar_equivalence"],
@@ -637,18 +690,28 @@ def assemble_host_ambient_artifact(
     """Project one issued local batch into typed diagnostic algebra objects."""
 
     checked = verify_host_source_evidence(evidence)
+    if checked.time_reversal:
+        if spatial_parent is None:
+            raise ValueError("graded host ambient requires its exact spatial sibling")
+        verify_host_ambient_artifact(spatial_parent)
+        target_construction = "onsite-c2-direct-product-resolution"
+        target_parent_id = spatial_parent.resolution_id
+    else:
+        if spatial_parent is not None:
+            raise ValueError("spatial host ambient cannot carry a spatial parent")
+        target_construction = "hap-resolution-almost-crystal-group-4-lookahead5"
+        target_parent_id = None
     request = checked.task4_request
     response = checked.task4_response
     certificate = response.affine_pcp_certificate
     assert certificate is not None
-    target_group_id = (
-        "ambient:"
-        + request.action.action_digest.removeprefix("sha256:")
-        + ":spatial"
+    authority_group_id = (
+        "ambient:" + request.action.action_digest.removeprefix("sha256:")
     )
+    target_group_id = authority_group_id + ":spatial"
     target_group_id += "+onsite-T" if checked.time_reversal else ""
     catalogue_digest = catalogue_record_authority_digest(
-        group_id=target_group_id,
+        group_id=authority_group_id,
         catalogue_action_digest=request.action.action_digest,
         inclusions=tuple(
             sorted(
@@ -705,6 +768,8 @@ def assemble_host_ambient_artifact(
             literal_element_digest=literal.literal_element_digest,
             transported_inclusion_digest=transported_digest,
             launcher_attestation=child.attestation,
+            target_construction=target_construction,
+            target_parent_spatial_resolution_id=target_parent_id,
         )
         _, _, equivalence, target_equivalence, failures, residues = components
         outcome = (
@@ -762,7 +827,8 @@ def assemble_host_ambient_artifact(
             source_group_id=source_group_id,
             target_group_id=target_group_id,
             source_construction="hap-resolution-finite-group-4-lookahead5",
-            target_construction="hap-resolution-almost-crystal-group-4-lookahead5",
+            target_construction=target_construction,
+            target_parent_spatial_resolution_id=target_parent_id,
             inclusion_id=literal.inclusion_id,
             literal_stabilizer_digest=literal.literal_stabilizer_digest,
             literal_element_digest=literal.literal_element_digest,
@@ -1117,6 +1183,47 @@ def _replaying_artifact_plan(
     )
 
 
+def _host_character_context(
+    ambient: HostNativeAmbientArtifact,
+):
+    checked = verify_host_ambient_artifact(ambient)
+    graded = checked.source_evidence.time_reversal
+    spatial = checked.spatial_parent if graded else checked
+    if spatial is None:
+        raise ValueError("graded host character context lacks a spatial parent")
+    verify_host_ambient_artifact(spatial)
+    spatial_resolution = spatial.resolution
+    generator_count = len(
+        spatial_resolution.affine_pcp_certificate.pcp_normal_form.relative_orders
+    )
+    spatial_basis = character_basis_certificate(
+        tuple(f"p{index + 1}" for index in range(generator_count)),
+        pcp_presentation_relators(spatial_resolution),
+        group_id=spatial_resolution.group_id,
+        resolution_id=spatial_resolution.resolution_id,
+        presentation_kind="pcp-presentation",
+        finite_group_table_digest=None,
+    )
+    report = _cochains.verify_character_basis(
+        spatial_basis,
+        spatial_resolution,
+        spatial.authority,
+    )
+    if not report.valid:
+        raise ValueError("host spatial character basis failed replay")
+    if graded:
+        basis = _cochains.adjoin_onsite_time_reversal_character(
+            spatial_basis,
+            spatial_resolution,
+            checked.authority,
+            graded_resolution=checked.resolution,
+        )
+        grade = GF2Character((0,) * len(spatial_basis.generator_order) + (1,))
+        return basis, grade, spatial_basis, spatial_resolution
+    grade = GF2Character((0,) * len(spatial_basis.generator_order))
+    return spatial_basis, grade, None, None
+
+
 @dataclass(frozen=True, slots=True)
 class HostNativeClassifierBackend(ClassifierBackendAuthority):
     """Host-only classifier backend; all returned results remain diagnostic."""
@@ -1318,55 +1425,7 @@ class HostNativeClassifierBackend(ClassifierBackendAuthority):
 
         if request.igg == "U1":
             resolution = checked.resolution
-            if graded:
-                parent = checked.spatial_parent
-                if parent is None:
-                    raise ValueError(
-                        "graded host U1 requires its exact spatial ambient sibling"
-                    )
-                verify_host_ambient_artifact(parent)
-                spatial_resolution = parent.resolution
-            else:
-                spatial_resolution = resolution
-            generator_count = len(
-                spatial_resolution.affine_pcp_certificate.pcp_normal_form.relative_orders
-            )
-            spatial_basis = character_basis_certificate(
-                tuple(f"p{index + 1}" for index in range(generator_count)),
-                pcp_presentation_relators(spatial_resolution),
-                group_id=spatial_resolution.group_id,
-                resolution_id=spatial_resolution.resolution_id,
-                presentation_kind="pcp-presentation",
-                finite_group_table_digest=None,
-            )
-            report = _cochains.verify_character_basis(
-                spatial_basis,
-                spatial_resolution,
-                (checked.spatial_parent or checked).authority,
-            )
-            if not report.valid:
-                raise ValueError("host spatial ambient character basis failed replay")
-            basis = (
-                _cochains.adjoin_onsite_time_reversal_character(
-                    spatial_basis,
-                    spatial_resolution,
-                    parent.authority,
-                )
-                if graded
-                else spatial_basis
-            )
-            if graded and (
-                resolution.affine_pcp_certificate
-                != spatial_resolution.affine_pcp_certificate
-                or resolution.group_id != spatial_resolution.group_id + "+onsite-T"
-            ):
-                raise ValueError(
-                    "graded host U1 ambient differs from its exact spatial sibling"
-                )
-            grade = GF2Character(
-                (0,) * len(spatial_basis.generator_order)
-                + ((1,) if graded else ())
-            )
+            basis, grade, _, _ = _host_character_context(checked)
             plans: list[LocalSkeletonPlan] = []
             for sector_index, rho in enumerate(basis.characters):
                 local_rho = GF2Character(
@@ -1561,17 +1620,20 @@ class HostNativeClassifierBackend(ClassifierBackendAuthority):
         inclusions: tuple[object, ...],
         timeout_seconds: int,
     ) -> ArtifactPlan:
-        if request.igg != "Z2":
-            raise NotImplementedError("host U1 relative classification is not yet available")
+        if request.igg not in ("Z2", "U1"):
+            raise ValueError("host relative classification supports Z2 or U1")
         resolved = tuple(resolved_orbits)
         local_rows = tuple(tuple(row) for row in local_skeletons)
         inclusion_rows = tuple(inclusions)
         if not (
             resolved
             and len(resolved) == len(local_rows) == len(inclusion_rows)
-            and all(len(row) == 1 for row in local_rows)
+            and (
+                request.igg == "U1"
+                or all(len(row) == 1 for row in local_rows)
+            )
         ):
-            raise ValueError("host relative stage requires one complete Z2 library per orbit")
+            raise ValueError("host relative stage dependencies differ from occupied orbits")
         if type(timeout_seconds) is not int or timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
 
@@ -1593,6 +1655,144 @@ class HostNativeClassifierBackend(ClassifierBackendAuthority):
             checked = verify_host_ambient_artifact(ambient)  # type: ignore[arg-type]
             if checked.source_evidence.time_reversal is not request.time_reversal:
                 raise ValueError("host relative time-reversal mode differs")
+            bound = tuple(inclusion_rows)
+            if any(type(item) is not HostNativeResolvedInclusion for item in bound):
+                raise TypeError("host relative stage requires resolved inclusions")
+            if tuple(item.instance_id for item in bound) != tuple(
+                item.instance_id for item in resolved
+            ):
+                raise ValueError("host relative inclusion instance order differs")
+
+            if request.igg == "U1":
+                from .classification_schema import ObstructedBranch
+                from .u1_classifier import LocalU1Data, TorsorStratum, make_u1_sector_problem
+
+                basis, grade, spatial_basis, spatial_resolution = (
+                    _host_character_context(checked)
+                )
+                if any(len(row) != len(basis.characters) for row in local_rows):
+                    raise ValueError("host U1 local rows omit or duplicate rho sectors")
+                for orbit_index, row in enumerate(local_rows):
+                    for rho, value in zip(basis.characters, row, strict=True):
+                        if (
+                            type(value) is not LocalSkeletonEvidence
+                            or value.coefficient_kind != "U1"
+                            or value.diagnostic
+                            or value.instance_id != resolved[orbit_index].instance_id
+                            or value.ambient_rho != rho
+                            or value.graded is not request.time_reversal
+                            or len(value.skeletons) != 1
+                        ):
+                            raise ValueError(
+                                "host U1 local evidence differs from the exhaustive rho order"
+                            )
+                source = CertifiedCochainProblem(
+                    checked.resolution,
+                    tuple(item.inclusion for item in checked.inclusions),
+                    basis,
+                )
+                problems = []
+                for sector_index, rho in enumerate(basis.characters):
+                    local_data = tuple(
+                        LocalU1Data(
+                            inclusion.instance_id,
+                            inclusion.source.inclusion,
+                            inclusion.source.bar_equivalence,
+                            local_rows[orbit_index][sector_index].skeletons[0],
+                        )
+                        for orbit_index, inclusion in enumerate(bound)
+                    )
+                    problems.append(
+                        make_u1_sector_problem(
+                            source,
+                            rho,
+                            grade=grade,
+                            authority=checked.authority,
+                            local_data=local_data,
+                            spatial_character_basis=spatial_basis,
+                            spatial_resolution=spatial_resolution,
+                            allow_diagnostic=True,
+                        )
+                    )
+                coverage = make_u1_sector_coverage(
+                    source=source,
+                    authority=checked.authority,
+                    grade=grade,
+                    problems=tuple(problems),
+                    spatial_character_basis=spatial_basis,
+                    spatial_resolution=spatial_resolution,
+                    allow_diagnostic=True,
+                )
+                strata = tuple(
+                    sorted(
+                        (
+                            outcome.result
+                            for outcome in coverage.outcomes
+                            if type(outcome.result) is TorsorStratum
+                        ),
+                        key=lambda item: item.stratum_id,
+                    )
+                )
+                obstructions = tuple(
+                    sorted(
+                        (
+                            outcome.result
+                            for outcome in coverage.outcomes
+                            if type(outcome.result) is ObstructedBranch
+                        ),
+                        key=lambda item: item.stratum_id,
+                    )
+                )
+                failures = tuple(
+                    outcome.failure
+                    for outcome in coverage.outcomes
+                    if outcome.failure is not None
+                )
+                problem_by_sector = {item.sector_id: item for item in problems}
+                global_weyl = tuple(
+                    sorted(
+                        (
+                            stratum.stratum_id,
+                            tuple(
+                                WeylOrbitData(
+                                    binding.instance_id,
+                                    binding.skeleton,
+                                    _diagnostic_bar_evaluator(
+                                        binding.bar_equivalence,
+                                        GF2Character(binding.skeleton.rho_values),
+                                    ),
+                                )
+                                for binding in problem_by_sector[
+                                    stratum.certificate.sector_id
+                                ].bindings
+                            ),
+                        )
+                        for stratum in strata
+                    )
+                )
+                relative_digest = _digest(
+                    "joint-host-u1-relative-source",
+                    {
+                        "character_certificate_id": basis.certificate_id,
+                        "coverage_id": coverage.coverage_id,
+                        "inclusion_ids": [item.certificate_id for item in bound],
+                        "instances": [item.instance_id for item in resolved],
+                        "sector_ids": [item.sector_id for item in problems],
+                    },
+                )
+                return JointLayerMaterial(
+                    branch_ids=tuple(
+                        sorted(item.stratum_id for item in strata + obstructions)
+                    ),
+                    framed_strata=strata,
+                    local_arrows=(),
+                    global_weyl_data=global_weyl,
+                    obstructed_branches=obstructions,
+                    failures=failures,
+                    source_artifact_digests=(("relative", relative_digest),),
+                    u1_sector_coverage=coverage,
+                )
+
             evidences = tuple(row[0] for row in local_rows)
             if any(
                 type(item) is not LocalSkeletonEvidence
@@ -1602,13 +1802,6 @@ class HostNativeClassifierBackend(ClassifierBackendAuthority):
                 for item in evidences
             ):
                 raise ValueError("host relative stage received invalid Z2 local evidence")
-            bound = tuple(inclusion_rows)
-            if any(type(item) is not HostNativeResolvedInclusion for item in bound):
-                raise TypeError("host relative stage requires resolved inclusions")
-            if tuple(item.instance_id for item in bound) != tuple(
-                item.instance_id for item in resolved
-            ):
-                raise ValueError("host relative inclusion instance order differs")
             if tuple(item.instance_id for item in evidences) != tuple(
                 item.instance_id for item in resolved
             ):
@@ -1712,7 +1905,7 @@ class HostNativeClassifierBackend(ClassifierBackendAuthority):
             )
 
         return _replaying_artifact_plan(
-            domain="host-relative-z2-plan",
+            domain=f"host-relative-{request.igg.lower()}-plan",
             inputs={
                 "ambient": artifact_semantic_digest(ambient),
                 "inclusions": [artifact_semantic_digest(item) for item in inclusions],
