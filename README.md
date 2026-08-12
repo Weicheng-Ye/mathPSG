@@ -282,19 +282,6 @@ result = mathpsg.classify(
 
 These are operational errors, not partial classification results.
 
-## Development
-
-Run the test suite from the repository root:
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 \
-python3 -W error::ResourceWarning -m unittest discover -s tests -v
-```
-
-`EXTRACTED_SOURCES.json`, `VERIFICATION.md`, `docs/`, and the root `AGENTS.md`
-are optional local development records. They are not required by installed
-users and are not read by `classify`.
-
 ## License
 
 See [LICENSE](LICENSE).
