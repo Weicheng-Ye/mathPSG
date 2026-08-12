@@ -42,3 +42,37 @@ MathPSGClassifierCrystConversion := function(matrices)
         pcp_group := pcpGroup
     );
 end;
+
+MathPSGClassifierPcpRelatorRowsMod2 := function(pcp)
+    local orders, generators, count, rows, earlier, later, reduced, row,
+          index;
+    orders := RelativeOrdersOfPcp(pcp);
+    generators := GeneratorsOfPcp(pcp);
+    count := Length(generators);
+    rows := [];
+
+    # Power and collection relations are the complete PCP presentation.
+    # Only exponent sums modulo two are needed for Hom(G, Z2).
+    for later in [1..count] do
+        if orders[later] <> 0 then
+            reduced := ExponentsByPcp(
+                pcp, generators[later]^orders[later]
+            );
+            row := List([1..count], index -> -reduced[index]);
+            row[later] := row[later] + orders[later];
+            Add(rows, List(row, value -> value mod 2));
+        fi;
+    od;
+    for later in [1..count] do
+        for earlier in [1..later - 1] do
+            reduced := ExponentsByPcp(
+                pcp, generators[later] * generators[earlier]
+            );
+            row := List([1..count], index -> -reduced[index]);
+            row[earlier] := row[earlier] + 1;
+            row[later] := row[later] + 1;
+            Add(rows, List(row, value -> value mod 2));
+        od;
+    od;
+    return rows;
+end;

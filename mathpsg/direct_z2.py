@@ -598,18 +598,19 @@ def _enumerate_canonical_type(type_id: str) -> tuple[Z2LocalSkeleton, ...]:
         )
         images = _marked_matrices(selected.host, selected.mapping)
         lifts = _marked_lifts(selected.host, selected.mapping)
+        image_type = _image_type_from_matrices(images)
         skeletons.append(
             Z2LocalSkeleton(
                 spatial_multiplication_table=table.multiplication_table,
                 so3_images=images,
                 su2_lifts=lifts,
                 defect_bits=_defect(table.multiplication_table, lifts),
-                projected_image_type_id=_image_type_from_matrices(images),
+                projected_image_type_id=image_type,
                 kernel_elements=tuple(
                     index for index, image in enumerate(images) if image == identity_so3()
                 ),
                 graded=False,
-                marking_shifts=(),
+                marking_shifts=_residual_marking_shifts(image_type, images, lifts),
             )
         )
     return tuple(
@@ -666,7 +667,9 @@ def _transport_spatial(
             index for index, image in enumerate(images) if image == identity_so3()
         ),
         graded=False,
-        marking_shifts=(),
+        marking_shifts=_residual_marking_shifts(
+            skeleton.projected_image_type_id, images, lifts
+        ),
     )
 
 
@@ -825,6 +828,19 @@ def _marking_shift(
         else:
             raise ArithmeticError("centralizer component acts noncentrally on SU(2) lifts")
     return tuple(result)
+
+
+def _residual_marking_shifts(
+    image_type: str,
+    images: tuple[ExactSO3, ...],
+    lifts: tuple[ExactQuaternion, ...],
+) -> tuple[tuple[int, ...], ...]:
+    return tuple(
+        _marking_shift(representative_lift, lifts)
+        for _, representative_lift in _centralizer_component_representatives(
+            image_type, images
+        )
+    )
 
 
 @lru_cache(maxsize=None)

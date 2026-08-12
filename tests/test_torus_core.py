@@ -11,6 +11,21 @@ from mathpsg.torus import Phase, TorusObstruction, TorusSolution
 
 
 class TorusCoreTests(unittest.TestCase):
+    def test_phase_system_is_solved_modulo_one(self) -> None:
+        solution = torus.solve_phase_system(
+            MatrixZ(((1, 0), (0, 1), (1, -1))),
+            (
+                Phase(Fraction(0)),
+                Phase(Fraction(1, 2)),
+                Phase(Fraction(1, 2)),
+            ),
+        )
+
+        self.assertEqual(
+            solution,
+            (Phase(Fraction(0)), Phase(Fraction(1, 2))),
+        )
+
     def test_mixed_compact_group_and_raw_coordinates(self) -> None:
         solution = torus.solve_torus_quotient(
             MatrixZ(((2, 0),)),

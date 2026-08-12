@@ -200,7 +200,7 @@ def _run_direct_task5(
         + "  MathPSGDirectRaw := MathPSGClassifierTask5LiteralInclusionMemberRaw(MathPSGDirectMemberInput, MathPSGDirectContext);\n"
         + "  Add(MathPSGDirectMembers, rec(inclusion_id := MathPSGDirectMember.inclusion.inclusion_id, raw_output := MathPSGDirectRaw));\n"
         + "od;\n"
-        + "MathPSGDirectOutput := rec(relative_orders := RelativeOrdersOfPcp(MathPSGDirectContext.conversion.pcp), members := MathPSGDirectMembers);\n"
+        + "MathPSGDirectOutput := rec(relative_orders := RelativeOrdersOfPcp(MathPSGDirectContext.conversion.pcp), relator_rows_mod2 := MathPSGClassifierPcpRelatorRowsMod2(MathPSGDirectContext.conversion.pcp), members := MathPSGDirectMembers);\n"
         + "if FileString({output_path}, MathPSGClassifierJson(MathPSGDirectOutput)) = fail then QUIT_GAP(2); fi;\n"
         + "QUIT_GAP(0);\n"
     )
@@ -208,7 +208,13 @@ def _run_direct_task5(
         program, runtime=runtime, root=root, timeout_seconds=timeout_seconds
     )
     try:
-        normal_form = PCPNormalForm(tuple(int(item) for item in envelope["relative_orders"]))
+        normal_form = PCPNormalForm(
+            tuple(int(item) for item in envelope["relative_orders"]),
+            tuple(
+                tuple(int(value) & 1 for value in row)
+                for row in envelope["relator_rows_mod2"]
+            ),
+        )
         members = tuple(
             (str(item["inclusion_id"]), item["raw_output"])
             for item in envelope["members"]

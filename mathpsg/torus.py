@@ -124,6 +124,21 @@ def _solve_torus_map(
     return _phase_matvec(smith.right, tuple(coordinates))
 
 
+def solve_phase_system(
+    matrix: MatrixInput,
+    target: Sequence[Phase],
+) -> tuple[Phase, ...]:
+    """Return one exact solution of ``matrix * x = target`` in ``R/Z``."""
+
+    result = _solve_torus_map(
+        as_matrix(matrix, "$solve_phase_system.matrix"),
+        tuple(target),
+    )
+    if isinstance(result, TorusObstruction):
+        raise ArithmeticError("phase system has no solution")
+    return result
+
+
 def _homogeneous_presentation(
     equation: MatrixZ,
     quotient: MatrixZ,

@@ -63,6 +63,7 @@ class PCPNormalForm:
     """The Task-4 PCP information needed to evaluate coefficient signs."""
 
     relative_orders: tuple[int, ...]
+    relator_rows_mod2: tuple[tuple[int, ...], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -435,31 +436,18 @@ def twist_group_ring_matrix(
     return MatrixZ(tuple(tuple(row) for row in dense), column_count=matrix.column_count)
 
 
-def group_ring_matrix_mod2_transpose(matrix: SparseGroupRingMatrix) -> MatrixGF2:
-    """Apply the trivial augmentation modulo two and transpose for cochains."""
-
-    dense = [[0] * matrix.row_count for _ in range(matrix.column_count)]
-    for entry in matrix.entries:
-        dense[entry.column][entry.row] ^= sum(
-            term.coefficient for term in entry.terms
-        ) & 1
-    return MatrixGF2(
-        tuple(tuple(row) for row in dense), column_count=matrix.row_count
-    )
-
-
 def enumerate_characters(resolution: FreeResolution) -> tuple[GF2Character, ...]:
-    """Enumerate ``Hom(G, Z2)`` from the degree-two resolution boundary.
+    """Enumerate ``Hom(G, Z2)`` in the ambient PCP-generator order."""
 
-    A sign character is a degree-one cocycle with trivial Z2 coefficients.
-    The degree-one HAP basis is in the same PCP-generator order used by the
-    emitted normal words, so the resulting bit vectors can be passed directly
-    to :func:`word_character`.
-    """
-
-    if len(resolution.boundaries) < 2:
-        raise ValueError("resolution does not contain its degree-two boundary")
-    basis = kernel_basis(group_ring_matrix_mod2_transpose(resolution.boundaries[1]))
+    normal_form = resolution.pcp_normal_form
+    if normal_form is None:
+        raise ValueError("ambient resolution lacks PCP presentation data")
+    generator_count = len(normal_form.relative_orders)
+    relations = MatrixGF2(
+        normal_form.relator_rows_mod2,
+        column_count=generator_count,
+    )
+    basis = kernel_basis(relations)
     characters: list[GF2Character] = []
     for coefficients in itertools.product((0, 1), repeat=len(basis)):
         characters.append(
@@ -470,7 +458,7 @@ def enumerate_characters(resolution: FreeResolution) -> tuple[GF2Character, ...]
                         for coefficient, vector in zip(coefficients, basis)
                     )
                     & 1
-                    for index in range(len(resolution.basis[1]))
+                    for index in range(generator_count)
                 )
             )
         )
@@ -513,7 +501,6 @@ __all__ = [
     "SparseResolutionTerm",
     "bar_chain_cochain_value",
     "enumerate_characters",
-    "group_ring_matrix_mod2_transpose",
     "parse_bar_equivalence",
     "parse_finite_group",
     "parse_group_ring_matrix",

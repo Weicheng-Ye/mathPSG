@@ -138,22 +138,22 @@ class ResidualQuotientTests(unittest.TestCase):
         )
 
     def test_finite_u1_result_runs_the_weyl_quotient(self) -> None:
-        self.assertEqual(self.u1.class_count, 40)
+        self.assertEqual(self.u1.class_count, 84)
         self.assertFalse(self.u1.continuous)
         self.assertEqual(
             dict(self.u1.details["quotient"]),
             {
-                "framed_finite_cardinality": 48,
-                "unframed_finite_cardinality": 40,
+                "framed_finite_cardinality": 96,
+                "unframed_finite_cardinality": 84,
                 "continuous_family_count": 0,
             },
         )
-        self.assertEqual(len(self.u1.summaries), 4)
+        self.assertEqual(len(self.u1.summaries), 8)
         for summary in self.u1.summaries:
             self.assertEqual(summary["free_rank"], 0)
         self.assertEqual(
             sorted(summary["finite_class_count"] for summary in self.u1.summaries),
-            [8, 8, 8, 24],
+            [8, 8, 8, 8, 8, 16, 16, 24],
         )
         self.assertEqual(
             sum(
@@ -161,6 +161,112 @@ class ResidualQuotientTests(unittest.TestCase):
                 for summary in self.u1.summaries
             ),
             1,
+        )
+
+
+class U1TimeReversalTests(unittest.TestCase):
+    def test_half_phase_weyl_equations_are_solved_on_the_torus(self) -> None:
+        result = mathpsg.classify(
+            2,
+            ["a"],
+            igg="U1",
+            time_reversal=True,
+            details=True,
+            timeout=900,
+        )
+
+        self.assertIsNone(result.class_count)
+        self.assertTrue(result.continuous)
+        self.assertEqual(len(result.summaries), 32)
+
+    def test_simple_cubic_onsite_time_reversal_matches_exact_benchmark(self) -> None:
+        result = mathpsg.classify(
+            221,
+            ["a"],
+            igg="U1",
+            time_reversal=True,
+            details=True,
+            timeout=900,
+        )
+
+        self.assertEqual(result.class_count, 296)
+        self.assertFalse(result.continuous)
+        self.assertEqual(
+            dict(result.details["quotient"]),
+            {
+                "framed_finite_cardinality": 320,
+                "unframed_finite_cardinality": 296,
+                "continuous_family_count": 0,
+            },
+        )
+        self.assertEqual(len(result.summaries), 16)
+        self.assertEqual(
+            sum(summary["finite_class_count"] for summary in result.summaries),
+            320,
+        )
+
+
+class U1CharacterCoordinateTests(unittest.TestCase):
+    def test_pyrochlore_pcp_characters_match_exact_benchmark(self) -> None:
+        result = mathpsg.classify(
+            227,
+            ["16c"],
+            igg="U1",
+            time_reversal=False,
+            details=True,
+            timeout=900,
+        )
+
+        self.assertEqual(result.class_count, 18)
+        self.assertFalse(result.continuous)
+        self.assertEqual(
+            dict(result.details["quotient"]),
+            {
+                "framed_finite_cardinality": 20,
+                "unframed_finite_cardinality": 18,
+                "continuous_family_count": 0,
+            },
+        )
+        self.assertEqual(
+            sorted(summary["finite_class_count"] for summary in result.summaries),
+            [4, 4, 4, 8],
+        )
+        self.assertEqual(
+            sorted(summary["torsion_orders"] for summary in result.summaries),
+            [(2, 2), (2, 2), (2, 2), (2, 4)],
+        )
+
+
+class SpatialResidualQuotientTests(unittest.TestCase):
+    def test_spatial_centralizer_reduces_sg227_48f(self) -> None:
+        result = mathpsg.classify(
+            227,
+            ["48f"],
+            igg="Z2",
+            time_reversal=False,
+            details=True,
+            timeout=900,
+        )
+
+        self.assertEqual(result.class_count, 40)
+        self.assertFalse(result.continuous)
+        self.assertEqual(
+            dict(result.details["quotient"]),
+            {
+                "framed_finite_cardinality": 48,
+                "unframed_finite_cardinality": 40,
+                "continuous_family_count": 0,
+            },
+        )
+        self.assertEqual(
+            sorted(
+                (
+                    summary["framed_finite_cardinality"],
+                    summary["unframed_finite_cardinality"],
+                )
+                for summary in result.summaries
+            ),
+            [(16, 8), (16, 16), (16, 16)],
         )
 
 

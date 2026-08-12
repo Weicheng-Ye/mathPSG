@@ -43,6 +43,7 @@ from .torus import (
     TorusSolution,
     ZERO_PHASE,
     raw_torsor_point,
+    solve_phase_system,
     solve_torus_quotient,
 )
 
@@ -398,53 +399,13 @@ def _u1_defect(skeleton, equivalence) -> tuple[Phase, ...]:
     )
 
 
-def _solve_rational_system(
-    rows: Sequence[Sequence[int]], right: Sequence[Fraction], columns: int
-) -> tuple[Fraction, ...]:
-    matrix = [
-        [Fraction(value) for value in row] + [Fraction(target)]
-        for row, target in zip(rows, right)
-    ]
-    pivot_columns: list[int] = []
-    pivot_row = 0
-    for column in range(columns):
-        selected = next(
-            (row for row in range(pivot_row, len(matrix)) if matrix[row][column]),
-            None,
-        )
-        if selected is None:
-            continue
-        matrix[pivot_row], matrix[selected] = matrix[selected], matrix[pivot_row]
-        pivot = matrix[pivot_row][column]
-        matrix[pivot_row] = [value / pivot for value in matrix[pivot_row]]
-        for row in range(len(matrix)):
-            if row == pivot_row:
-                continue
-            coefficient = matrix[row][column]
-            if coefficient:
-                matrix[row] = [
-                    left - coefficient * value
-                    for left, value in zip(
-                        matrix[row], matrix[pivot_row]
-                    )
-                ]
-        pivot_columns.append(column)
-        pivot_row += 1
-    if any(not any(row[:columns]) and row[columns] for row in matrix):
-        raise ArithmeticError("Weyl comparison cochain has no solution")
-    result = [Fraction(0)] * columns
-    for row, column in enumerate(pivot_columns):
-        result[column] = matrix[row][columns]
-    return tuple(result)
-
-
 def _weyl_coordinates(skeleton, equivalence) -> tuple[Phase, ...]:
     table = equivalence.finite_group
     element_index = {element: index for index, element in enumerate(table.element_order)}
     phi = {item.group_tuple: item.image for item in equivalence.phi_on_queries}
     dimension = len(equivalence.resolution.basis[1])
     rows: list[tuple[int, ...]] = []
-    values: list[Fraction] = []
+    values: list[Phase] = []
     for element in table.element_order[1:]:
         weights = [0] * dimension
         for term in phi[(element,)].terms:
@@ -453,9 +414,12 @@ def _weyl_coordinates(skeleton, equivalence) -> tuple[Phase, ...]:
             weights[basis_index] += term.coefficient * sign
         rows.append(tuple(weights))
         values.append(
-            Fraction(skeleton.grade_values[element_index[element]], 2)
+            Phase(Fraction(skeleton.grade_values[element_index[element]], 2))
         )
-    return tuple(Phase(value) for value in _solve_rational_system(rows, values, dimension))
+    return solve_phase_system(
+        MatrixZ(tuple(rows), column_count=dimension),
+        values,
+    )
 
 
 def _u1_strata(
