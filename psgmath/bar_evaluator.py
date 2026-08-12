@@ -3422,10 +3422,30 @@ def _target_group_multiplier(resolution: FreeResolutionCertificate):
             return cached
         _normal_key(resolution, left)
         _normal_key(resolution, right)
-        left_affine = _evaluate_pcp_word(left, normal_form)
-        right_affine = _evaluate_pcp_word(right, normal_form)
+        graded = resolution.group_id.endswith("+onsite-T")
+
+        def split(value: str) -> tuple[str, int]:
+            if not graded:
+                return value, 0
+            if value == "T":
+                return "1", 1
+            if value.endswith("+T"):
+                spatial = value[:-2]
+                if not spatial or spatial == "1" or "T" in spatial:
+                    raise ValueError("invalid onsite-time-reversal normal form")
+                return spatial, 1
+            if "T" in value:
+                raise ValueError("invalid onsite-time-reversal normal form")
+            return value, 0
+
+        left_spatial, left_time = split(left)
+        right_spatial, right_time = split(right)
+        left_affine = _evaluate_pcp_word(left_spatial, normal_form)
+        right_affine = _evaluate_pcp_word(right_spatial, normal_form)
         product = _compose_affine(right_affine, left_affine)
         result = word(decoder(product))
+        if graded and left_time ^ right_time:
+            result = "T" if result == "1" else result + "+T"
         cache[(left, right)] = result
         return result
 

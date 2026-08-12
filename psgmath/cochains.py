@@ -2919,7 +2919,38 @@ def verify_inclusion_chain_map(
                 "transported inclusion digest does not bind the embedded Task 4 inclusion",
             ))
         source_table = certificate.source_resolution.finite_group
-        if source_table is None or source_table.multiplication_table != transported.multiplication_table or certificate.source_element_images != transported.pcp_images:
+        if source_table is None:
+            issues.append(_issue("literal_stabilizer_binding_mismatch", "finite table or transported element images differ from Task 4"))
+        elif certificate.source_resolution.group_id.endswith("+onsite-T"):
+            spatial_size = len(transported.multiplication_table)
+            try:
+                if len(source_table.element_order) != 2 * spatial_size:
+                    raise ValueError("graded finite table has the wrong order")
+                spatial_order = source_table.element_order[:spatial_size]
+                spatial_table = FiniteGroupTable(
+                    source_table.group_id.removesuffix("+onsite-T"),
+                    spatial_order,
+                    0,
+                    transported.multiplication_table,
+                    transported.inverse_indices,
+                )
+                _verify_graded_finite_group_table(spatial_table, source_table)
+                spatial_images = transported.pcp_images
+                expected_images = spatial_images + ("T",) + tuple(
+                    f"{item}+T" for item in spatial_images[1:]
+                )
+                if certificate.source_element_images != expected_images:
+                    raise ValueError(
+                        "graded transported images are not the exact spatial x C2 extension"
+                    )
+            except (TypeError, ValueError) as error:
+                issues.append(
+                    _issue("literal_stabilizer_binding_mismatch", str(error))
+                )
+        elif (
+            source_table.multiplication_table != transported.multiplication_table
+            or certificate.source_element_images != transported.pcp_images
+        ):
             issues.append(_issue("literal_stabilizer_binding_mismatch", "finite table or transported element images differ from Task 4"))
         else:
             try:

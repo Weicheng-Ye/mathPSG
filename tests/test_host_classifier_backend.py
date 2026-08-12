@@ -13,13 +13,22 @@ from psgmath.bar_evaluator import (
     verify_gap_batch_launcher_execution,
 )
 from psgmath.catalogue import catalogue_record_order_key
+from psgmath.catalogue_loader import CatalogueIndex
+from psgmath.certified_classifier import make_z2_local_skeleton_evidence
 from psgmath.host_classifier_backend import (
+    HostNativeClassifierBackend,
     HostNativeSourceEvidence,
+    assemble_host_ambient_artifact,
     build_host_source_evidence,
     verify_host_source_evidence,
 )
 from psgmath.live_catalogue import LiveCatalogue
+from psgmath.live_classify import resolve_occupancy_request
 from psgmath.local_gap import GapRuntimeError, probe_gap
+from psgmath.query import (
+    make_diagnostic_verified_catalogue,
+    resolve_request_orbits,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,6 +52,13 @@ class HostSourceEvidenceTests(unittest.TestCase):
             (cls.sg1, cls.sg1),
             runtime=cls.runtime,
             time_reversal=False,
+            timeout=300,
+            repository_root=ROOT,
+        )
+        cls.graded_evidence = build_host_source_evidence(
+            (cls.sg1,),
+            runtime=cls.runtime,
+            time_reversal=True,
             timeout=300,
             repository_root=ROOT,
         )
@@ -179,6 +195,189 @@ class HostSourceEvidenceTests(unittest.TestCase):
                     repository_root=ROOT,
                     **values,
                 )
+
+    def test_spatial_z2_local_plan_is_exact_and_exhaustive(self) -> None:
+        ambient = assemble_host_ambient_artifact(self.evidence)
+        backend = HostNativeClassifierBackend(
+            runtime=self.runtime,
+            repository_root=ROOT,
+        )
+        request = resolve_occupancy_request(
+            1,
+            ["a"],
+            igg="Z2",
+            time_reversal=False,
+            setting=None,
+            catalogue=self.catalogue,
+        )
+        verified = make_diagnostic_verified_catalogue(
+            CatalogueIndex(self.catalogue.records(1)),
+            backend=backend,
+        )
+        resolved = resolve_request_orbits(request, verified)[0]
+
+        plans = tuple(
+            backend.local_skeleton_plans(request, resolved, ambient, 300)
+        )
+
+        self.assertEqual(len(plans), 1)
+        evidence = plans[0].plan.verify(plans[0].plan.build())
+        self.assertEqual(evidence.coefficient_kind, "Z2")
+        self.assertTrue(evidence.skeletons)
+        self.assertEqual(
+            evidence.skeleton_ids,
+            tuple(item.skeleton_id for item in evidence.skeletons),
+        )
+        with self.assertRaisesRegex(ValueError, "exhaustive|differs"):
+            make_z2_local_skeleton_evidence(
+                instance_id=evidence.instance_id,
+                source_table=evidence.source_table,
+                skeletons=evidence.skeletons[:-1],
+                restricted_grade=evidence.restricted_grade,
+                graded=False,
+            )
+        attacked = bytearray(plans[0].plan.build())
+        attacked[-2] ^= 1
+        with self.assertRaisesRegex(ValueError, "bytes differ"):
+            plans[0].plan.verify(bytes(attacked))
+
+        with self.assertRaisesRegex(ValueError, "factory-issued"):
+            from psgmath.host_classifier_backend import verify_host_ambient_artifact
+
+            verify_host_ambient_artifact(copy.copy(ambient))
+
+    def test_spatial_u1_local_plans_cover_every_ambient_rho(self) -> None:
+        ambient = assemble_host_ambient_artifact(self.evidence)
+        backend = HostNativeClassifierBackend(
+            runtime=self.runtime,
+            repository_root=ROOT,
+        )
+        request = resolve_occupancy_request(
+            1,
+            ["a"],
+            igg="U1",
+            time_reversal=False,
+            setting=None,
+            catalogue=self.catalogue,
+        )
+        verified = make_diagnostic_verified_catalogue(
+            CatalogueIndex(self.catalogue.records(1)), backend=backend
+        )
+        resolved = resolve_request_orbits(request, verified)[0]
+
+        plans = tuple(backend.local_skeleton_plans(request, resolved, ambient, 300))
+        evidence = tuple(plan.plan.verify(plan.plan.build()) for plan in plans)
+
+        self.assertTrue(evidence)
+        self.assertEqual(
+            len({item.ambient_rho.bits for item in evidence}), len(evidence)
+        )
+        self.assertTrue(all(item.coefficient_kind == "U1" for item in evidence))
+        self.assertTrue(all(len(item.skeletons) == 1 for item in evidence))
+
+    def test_graded_z2_local_plan_enumerates_full_spatial_cross_c2_library(self) -> None:
+        ambient = assemble_host_ambient_artifact(
+            self.graded_evidence,
+            spatial_parent=assemble_host_ambient_artifact(self.evidence),
+        )
+        backend = HostNativeClassifierBackend(
+            runtime=self.runtime,
+            repository_root=ROOT,
+        )
+        request = resolve_occupancy_request(
+            1,
+            ["a"],
+            igg="Z2",
+            time_reversal=True,
+            setting=None,
+            catalogue=self.catalogue,
+        )
+        verified = make_diagnostic_verified_catalogue(
+            CatalogueIndex(self.catalogue.records(1)), backend=backend
+        )
+        resolved = resolve_request_orbits(request, verified)[0]
+
+        plan = tuple(backend.local_skeleton_plans(request, resolved, ambient, 300))[0]
+        evidence = plan.plan.verify(plan.plan.build())
+
+        self.assertTrue(evidence.graded)
+        self.assertTrue(evidence.skeletons)
+        self.assertTrue(all(item.time_orbit is not None for item in evidence.skeletons))
+
+    def test_local_plan_rejects_ambient_from_opposite_time_reversal_mode(self) -> None:
+        backend = HostNativeClassifierBackend(
+            runtime=self.runtime,
+            repository_root=ROOT,
+        )
+        verified = make_diagnostic_verified_catalogue(
+            CatalogueIndex(self.catalogue.records(1)), backend=backend
+        )
+        spatial_request = resolve_occupancy_request(
+            1, ["a"], igg="Z2", time_reversal=False, setting=None,
+            catalogue=self.catalogue,
+        )
+        graded_request = resolve_occupancy_request(
+            1, ["a"], igg="Z2", time_reversal=True, setting=None,
+            catalogue=self.catalogue,
+        )
+        spatial_resolved = resolve_request_orbits(spatial_request, verified)[0]
+        graded_resolved = resolve_request_orbits(graded_request, verified)[0]
+        spatial_ambient = assemble_host_ambient_artifact(self.evidence)
+        graded_ambient = assemble_host_ambient_artifact(
+            self.graded_evidence,
+            spatial_parent=spatial_ambient,
+        )
+
+        with self.assertRaisesRegex(ValueError, "time-reversal|time reversal"):
+            backend.local_skeleton_plans(
+                graded_request, graded_resolved, spatial_ambient, 300
+            )
+        with self.assertRaisesRegex(ValueError, "time-reversal|time reversal"):
+            backend.local_skeleton_plans(
+                spatial_request, spatial_resolved, graded_ambient, 300
+            )
+
+    def test_graded_u1_local_plans_cover_every_ambient_rho(self) -> None:
+        ambient = assemble_host_ambient_artifact(
+            self.graded_evidence,
+            spatial_parent=assemble_host_ambient_artifact(self.evidence),
+        )
+        backend = HostNativeClassifierBackend(
+            runtime=self.runtime,
+            repository_root=ROOT,
+        )
+        request = resolve_occupancy_request(
+            1,
+            ["a"],
+            igg="U1",
+            time_reversal=True,
+            setting=None,
+            catalogue=self.catalogue,
+        )
+        verified = make_diagnostic_verified_catalogue(
+            CatalogueIndex(self.catalogue.records(1)), backend=backend
+        )
+        resolved = resolve_request_orbits(request, verified)[0]
+
+        plans = tuple(backend.local_skeleton_plans(request, resolved, ambient, 300))
+        evidence = tuple(plan.plan.verify(plan.plan.build()) for plan in plans)
+
+        self.assertTrue(evidence)
+        self.assertEqual(
+            len({item.ambient_rho.bits for item in evidence}), len(evidence)
+        )
+        self.assertTrue(all(item.coefficient_kind == "U1" for item in evidence))
+        self.assertTrue(all(item.graded for item in evidence))
+        self.assertTrue(all(len(item.skeletons) == 1 for item in evidence))
+        self.assertEqual(
+            tuple(item.ambient_rho.bits for item in evidence),
+            tuple(sorted(item.ambient_rho.bits for item in evidence)),
+        )
+        self.assertEqual(len({plan.plan.plan_digest for plan in plans}), len(plans))
+        attacked = bytearray(plans[-1].plan.build())
+        attacked[-2] ^= 1
+        with self.assertRaisesRegex(ValueError, "bytes differ"):
+            plans[-1].plan.verify(bytes(attacked))
 
 
 if __name__ == "__main__":

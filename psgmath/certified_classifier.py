@@ -84,6 +84,7 @@ from .z2_local import (
     Z2LocalSkeleton,
     enumerate_graded_z2_skeletons,
     enumerate_spatial_z2_skeletons,
+    verify_graded_z2_skeleton,
     verify_z2_local_skeleton,
 )
 from .z2_classifier import (
@@ -583,7 +584,10 @@ def make_z2_local_skeleton_evidence(
     )
     supplied = tuple(skeletons)
     for item in supplied:
-        verify_z2_local_skeleton(item, source_table)
+        if graded:
+            verify_graded_z2_skeleton(item, source_table)
+        else:
+            verify_z2_local_skeleton(item, source_table)
     if supplied != expected:
         raise ValueError("Z2 local library differs from exhaustive enumeration")
     return _make_local_skeleton_evidence(
