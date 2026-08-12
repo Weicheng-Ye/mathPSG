@@ -6,6 +6,7 @@ import hashlib
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from psgmath.catalogue_loader import CatalogueIndex, load_ndjson
 from psgmath.certified_classifier import (
@@ -20,7 +21,8 @@ from psgmath.query import (
     resolve_request_orbits,
     verify_verified_catalogue,
 )
-from psgmath.live_catalogue import LiveCatalogue
+from psgmath.live_catalogue import CatalogueError, LiveCatalogue
+from psgmath.live_classify import resolve_occupancy_request
 from psgmath.local_gap import probe_gap
 
 
@@ -183,6 +185,141 @@ class RestoredOrchestrationTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "release.*unavailable"):
                 tuple(load_ndjson(geometry))
+
+
+class OccupancyRequestTests(unittest.TestCase):
+    """Catch splitting one occupied-WP list into independent calculations."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temporary = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.temporary.cleanup)
+        cls.catalogue = LiveCatalogue(
+            probe_gap(),
+            cache_root=Path(cls.temporary.name),
+            repository_root=ROOT,
+        )
+
+    def test_a_and_b_are_one_ordered_joint_request(self) -> None:
+        request = resolve_occupancy_request(
+            99,
+            ["a", "b"],
+            igg="Z2",
+            time_reversal=False,
+            setting=None,
+            catalogue=self.catalogue,
+        )
+
+        self.assertEqual(request.space_group, 99)
+        self.assertEqual(request.setting_id, "1")
+        self.assertEqual(len(request.orbits), 2)
+        self.assertEqual(
+            tuple(item.wyckoff_id for item in request.orbits),
+            (
+                self.catalogue.resolve(99, "a", "1").wyckoff_id,
+                self.catalogue.resolve(99, "b", "1").wyckoff_id,
+            ),
+        )
+        self.assertEqual(
+            tuple(item.instance_id for item in request.orbits),
+            ("atom-0000", "atom-0001"),
+        )
+
+    def test_repeated_a_retains_two_distinct_instances(self) -> None:
+        request = resolve_occupancy_request(
+            1,
+            ["a", "a"],
+            igg="Z2",
+            time_reversal=False,
+            setting=None,
+            catalogue=self.catalogue,
+        )
+
+        self.assertEqual(len(request.orbits), 2)
+        self.assertNotEqual(request.orbits[0].instance_id, request.orbits[1].instance_id)
+        self.assertEqual(request.orbits[0].wyckoff_id, request.orbits[1].wyckoff_id)
+
+    def test_one_string_is_one_occupied_position(self) -> None:
+        request = resolve_occupancy_request(
+            1,
+            "a",
+            igg="U1",
+            time_reversal=True,
+            setting="1",
+            catalogue=self.catalogue,
+        )
+
+        self.assertEqual(len(request.orbits), 1)
+        self.assertEqual(request.igg, "U1")
+        self.assertTrue(request.time_reversal)
+
+    def test_full_conventional_label_is_accepted(self) -> None:
+        request = resolve_occupancy_request(
+            1,
+            "1a",
+            igg="Z2",
+            time_reversal=False,
+            setting="1",
+            catalogue=self.catalogue,
+        )
+
+        self.assertEqual(len(request.orbits), 1)
+        self.assertEqual(
+            request.orbits[0].wyckoff_id,
+            self.catalogue.resolve(1, "a", "1").wyckoff_id,
+        )
+
+    def test_structurally_invalid_inputs_do_not_access_catalogue(self) -> None:
+        cases = (
+            ({"wps": [""], "igg": "Z2", "setting": None}, ValueError),
+            ({"wps": ["aa"], "igg": "Z2", "setting": None}, ValueError),
+            ({"wps": ["0a"], "igg": "Z2", "setting": None}, ValueError),
+            ({"wps": ["a"], "igg": 1, "setting": None}, TypeError),
+            ({"wps": ["a"], "igg": "Z2", "setting": " 1"}, ValueError),
+            ({"wps": ["a"], "igg": "Z2", "setting": "setting/1"}, ValueError),
+        )
+        for values, error in cases:
+            with self.subTest(values=values), patch.object(
+                self.catalogue,
+                "records",
+                side_effect=AssertionError("invalid input reached catalogue"),
+            ), self.assertRaises(error):
+                resolve_occupancy_request(
+                    1,
+                    time_reversal=False,
+                    catalogue=self.catalogue,
+                    **values,
+                )
+
+    def test_explicit_mismatched_setting_is_rejected(self) -> None:
+        with self.assertRaisesRegex(CatalogueError, "no match"):
+            resolve_occupancy_request(
+                1,
+                ["a"],
+                igg="Z2",
+                time_reversal=False,
+                setting="2",
+                catalogue=self.catalogue,
+            )
+
+    def test_invalid_public_arguments_fail_before_resolution(self) -> None:
+        cases = (
+            {"it_number": True, "wps": ["a"], "igg": "Z2", "time_reversal": False},
+            {"it_number": 0, "wps": ["a"], "igg": "Z2", "time_reversal": False},
+            {"it_number": 1, "wps": [], "igg": "Z2", "time_reversal": False},
+            {"it_number": 1, "wps": ["a"], "igg": "SU2", "time_reversal": False},
+            {"it_number": 1, "wps": ["a"], "igg": "Z2", "time_reversal": 1},
+            {"it_number": 1, "wps": ["missing"], "igg": "Z2", "time_reversal": False},
+        )
+        for values in cases:
+            with self.subTest(values=values), self.assertRaises(
+                (TypeError, ValueError, RuntimeError)
+            ):
+                resolve_occupancy_request(
+                    setting=None,
+                    catalogue=self.catalogue,
+                    **values,
+                )
 
 
 if __name__ == "__main__":
