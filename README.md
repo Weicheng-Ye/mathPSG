@@ -40,6 +40,45 @@ The development host used these exact observed versions:
 Every command probes and records the versions actually used. Evidence is
 labeled `host-native`, never release-certified.
 
+## Install for use from any directory
+
+The recommended setup is an editable installation in a dedicated virtual
+environment:
+
+```bash
+python3 -m venv ~/.venvs/mathpsg
+source ~/.venvs/mathpsg/bin/activate
+python -m pip install -e ~/Downloads/mathpsg-standalone
+```
+
+After activation, the package and command are available from any directory:
+
+```bash
+mathpsg doctor
+mathpsg catalogue --it-number 227
+python -c 'from psgmath import probe_gap; print(probe_gap())'
+```
+
+Activate the environment again in each new terminal session:
+
+```bash
+source ~/.venvs/mathpsg/bin/activate
+```
+
+To use the package without installing it, set `PYTHONPATH` for the command:
+
+```bash
+PYTHONPATH=~/Downloads/mathpsg-standalone \
+  python3 -m psgmath catalogue --it-number 227
+```
+
+The local `gap` executable must be available through `PATH`. To use a specific
+executable, pass its absolute path, for example:
+
+```bash
+mathpsg doctor --gap /absolute/path/to/gap
+```
+
 ## Run
 
 No Python installation step is required. From this directory:
