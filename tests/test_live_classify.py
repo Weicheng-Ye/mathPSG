@@ -178,7 +178,7 @@ class LiveJointZ2Tests(unittest.TestCase):
             any(item.certificate.centralizer_actions for item in result.framed_strata)
         )
 
-    def test_warm_cache_replays_without_launching_gap_again(self) -> None:
+    def test_warm_cache_replays_without_rerunning_gap_solver_jobs(self) -> None:
         request = resolve_occupancy_request(
             1, ["a"], igg="Z2", time_reversal=False, setting=None,
             catalogue=self.catalogue,
@@ -201,7 +201,7 @@ class LiveJointZ2Tests(unittest.TestCase):
         )
         with patch(
             "psgmath.host_classifier_backend.build_host_source_evidence",
-            side_effect=AssertionError("cache replay must not execute GAP"),
+            side_effect=AssertionError("cache replay must not rerun GAP solver jobs"),
         ) as launcher:
             second = classify_request(
                 request,

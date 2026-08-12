@@ -13,6 +13,7 @@ from typing import Mapping
 
 from .catalogue_loader import CatalogueIndex
 from .classification_schema import (
+    FrozenJSONArray,
     FrozenJSONObject,
     canonical_classification_json,
     loads_classification_record,
@@ -61,6 +62,45 @@ class HostNativeClassificationResult:
     details: FrozenJSONObject | None
     certification_status: str
     runtime: HostRuntimeProvenance
+
+
+def _plain(value):
+    if isinstance(value, FrozenJSONObject):
+        return {key: _plain(item) for key, item in value.items}
+    if isinstance(value, FrozenJSONArray):
+        return [_plain(item) for item in value.items]
+    if isinstance(value, Mapping):
+        return {key: _plain(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_plain(item) for item in value]
+    return value
+
+
+def classification_result_mapping(
+    value: HostNativeClassificationResult,
+) -> dict[str, object]:
+    """Return the canonical capability-free JSON shape for one public result."""
+
+    if type(value) is not HostNativeClassificationResult:
+        raise TypeError("expected HostNativeClassificationResult")
+    runtime = value.runtime
+    return {
+        "certification_status": value.certification_status,
+        "class_count": value.class_count,
+        "continuous": value.continuous,
+        "details": None if value.details is None else _plain(value.details),
+        "request": _plain(value.request),
+        "runtime": {
+            "certification_status": runtime.certification_status,
+            "gap_executable_sha256": runtime.gap_executable_sha256,
+            "gap_packages": dict(runtime.gap_packages),
+            "gap_version": runtime.gap_version,
+            "package_version": runtime.package_version,
+            "python_version": runtime.python_version,
+            "source_inventory_digest": runtime.source_inventory_digest,
+        },
+        "summaries": [_plain(item) for item in value.summaries],
+    }
 
 
 def _default_cache_root() -> Path:
@@ -309,5 +349,6 @@ __all__ = [
     "HostNativeClassificationResult",
     "HostRuntimeProvenance",
     "classify",
+    "classification_result_mapping",
     "resolve_occupancy_request",
 ]

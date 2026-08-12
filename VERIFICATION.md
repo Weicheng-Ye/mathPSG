@@ -1,7 +1,7 @@
 # Verification record
 
-Verified on 2026-08-12 in `/private/tmp/mathpsg-standalone-build` before the
-final Downloads copy.
+Verified on 2026-08-12 in the standalone build tree before the final Downloads
+copy.
 
 ## Runtime observed
 
@@ -15,62 +15,79 @@ final Downloads copy.
 - GAP executable SHA-256:
   `6651f91b7054facb69fb7df968bed8116035bab2e2f3bb5e8fe8f9d1ff2725a6`
 
-## Automated suite
+## Reviewed calculator boundaries
+
+The implementation and focused regressions establish:
+
+- exact live catalogue resolution before solver execution;
+- one grouped local-GAP ambient/inclusion calculation;
+- exhaustive spatial and onsite-time Z2 local branches;
+- exhaustive spatial and onsite-time U1 coefficient-character sectors;
+- one joint relative solve for ordered simultaneous/repeated occupancy;
+- exact finite unframed class counts and continuous-U1 presentations;
+- diagnostic host-native Weyl evidence that cannot cross a release-only gate;
+- pure replay of content-addressed cache evidence without rerunning the GAP
+  catalogue, Task4, or Task5 solver jobs; the selected GAP runtime is freshly
+  reprobed to verify its executable and package identity;
+- immutable public results with no retained backend or Task5 authority;
+- runtime, package, executable, and installed-source provenance.
+
+## Real local-GAP regressions completed
+
+- SG 1 Z2, spatial, one occupied orbit.
+- SG 1 Z2, spatial, repeated `['a', 'a']` occupancy.
+- SG 1 Z2, onsite-time.
+- SG 2 Z2, distinct `['a', 'b']` and `['b', 'a']` occupancy.
+- SG 1 U1, spatial, exhaustive sector coverage.
+- SG 1 U1, spatial, repeated `['a', 'a']` occupancy.
+- SG 1 U1, onsite-time, exhaustive sector coverage.
+- SG 2 U1, spatial, distinct `['a', 'b']` joint occupancy.
+- public Python `classify()` finite/count, details, cache replay, and U1
+  continuity behavior.
+
+An installed-layout simulation copied only the `psgmath` package into a fresh
+site directory, changed the working directory outside the repository, and ran:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 -W error::ResourceWarning \
-  -m unittest discover -s tests -v
+python3 -c 'from psgmath import classify'
+python3 -m psgmath capabilities
+python3 -m psgmath classify --it-number 1 --wps a --igg Z2
 ```
 
-Result: 48 tests passed in 66.767 seconds; zero failures, errors, or skips.
+The real CLI query completed with exact unframed class count `8`,
+`continuous: false`, host-native status, and the runtime versions/digests
+recorded above. This verifies that runtime assets are loaded relative to the
+installed package rather than the current directory.
 
-The suite covers extraction boundaries, source-inventory replay, runtime probe
-parsing and a real probe, live SG 1 generation/cache reuse, Task4 conversion
-evidence in both modes, CLI behavior, the explicit solver boundary, and focused
-exact U1 local algebra/certificate replay.
+The SG 2 U1 joint integration completed in 636.609 seconds. It inspected the
+typed relative artifact and proved exactly one relative plan call, two ordered
+local inputs/bindings/restrictions in every coefficient sector, and two ordered
+diagnostic Weyl evaluator rows.
 
-An installed-layout simulation then copied only the `psgmath` package into a
-fresh directory, set that directory as `PYTHONPATH`, changed the working
-directory outside the repository, and successfully ran `doctor`,
-`capabilities`, SG 1 `catalogue`, and both SG 1 `evidence` modes. This exercises
-the packaged GAP scripts, classifier libraries, display crosswalk, and the
-installed-source provenance fallback without source-tree adjacency.
+## Focused suite results
 
-## Real local-GAP smoke commands
+Recorded green runs during implementation include:
 
-The following commands ran against one fresh external cache:
+- 35 orchestration, host-evidence, and extraction tests in 78.884 seconds;
+- 25 request/public-result/extraction tests in 104.189 seconds;
+- 4 public Python calculator tests in 85.160 seconds;
+- targeted live U1 single/repeated/order tests, 3 tests in 60.050 seconds.
 
-```bash
-python3 -m psgmath doctor
-python3 -m psgmath catalogue --it-number 1 --cache CACHE
-python3 -m psgmath catalogue --it-number 70 --cache CACHE
-python3 -m psgmath catalogue --it-number 227 --cache CACHE
-python3 -m psgmath evidence --it-number 1 --mode spatial --cache CACHE
-python3 -m psgmath evidence --it-number 1 --mode onsite-time --cache CACHE
-```
+All completed reviews reported no remaining Critical or Important findings at
+their approved boundaries.
 
-Observed catalogue counts were SG 1: 1, SG 70 setting 2: 8, and SG 227
-setting 2: 9. Spatial and onsite-time evidence each covered the same SG 1
-member and replayed successfully. Their request digests were respectively:
+## Authority statement
 
-- `sha256:5476517b447dde0f542a0c2f1033942ba32a0ed2a6875feb3644ea2fe026dda6`
-- `sha256:16c2461ad7ed809e6b1832343233b7e29b4e09d9c860e119dd1bb2d6cf930038`
+These are host-native, replay-checked calculations. They are not signed and do
+not claim release-certified authority. No Docker image, precomputed
+classification atlas, PyXtal dependency, or group-specific benchmark path is
+used.
 
-Both returned the affine certificate digest
-`sha256:f2047f6019a195e19430a0070dc673da507bbf1c578af4b225f985bee16314d7`
-and explicitly reported `release_certified: false`.
+## Coverage statement
 
-## Scope not claimed
-
-This verification did not run an exhaustive sweep over all 230 IT numbers and
-does not claim final Z2/U1 PSG class counts. The copied snapshot lacks the
-reviewed live-evidence-to-final-solver bridge, and this repository intentionally
-does not invent it or expose a `classify` command.
-
-## Tree measurements
-
-The final pre-commit source tree excluding `.git` contained 79 files and
-7,089,739 bytes: 39 Python files (1,514,240 bytes), 20 GAP files including the
-package-local runtime copies (206,236 bytes), and 14 packaged/resource files
-(5,385,893 bytes). Generated caches and bytecode were absent. The final
-inventory is regenerated after this record and all review fixes.
+The code exposes the same live path for IT numbers 1 through 230, but this
+record does not claim that every possible IT-number/setting/occupancy query has
+been exhaustively swept. A query is successful only when every required local
+branch or coefficient sector, inclusion, relative solve, residual action, and
+quotient replay completes; otherwise the API fails without returning a partial
+count.
