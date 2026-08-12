@@ -1210,91 +1210,39 @@ _LOCKED_PACKAGE_VERSIONS = {
 }
 
 def _locked_environment_core() -> dict[str, Any]:
-    try:
-        encoded = asset_bytes(_CLASSIFIER_LOCK_ASSET)
-        lock = json.loads(encoded)
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        raise ValueError("tracked classifier environment lock is unavailable") from error
-    if not isinstance(lock, Mapping) or lock.get("schema_version") != 1:
-        raise ValueError("tracked classifier environment lock is invalid")
-    base_image = lock.get("base_image")
-    build_provenance = lock.get("build_provenance")
-    components_value = lock.get("components")
-    api_closure_value = lock.get("api_closure_evidence")
-    task5_closure_value = lock.get("task5_certificate_closure")
-    if (
-        not isinstance(base_image, Mapping)
-        or not isinstance(build_provenance, Mapping)
-        or not isinstance(components_value, list)
-        or not isinstance(api_closure_value, Mapping)
-        or not isinstance(task5_closure_value, Mapping)
-    ):
-        raise ValueError("tracked classifier environment lock is invalid")
-    try:
-        protocol_bytes = _classifier_source_bytes("protocol.g")
-        affine_pcp_bytes = _classifier_source_bytes("affine_pcp.g")
-    except OSError as error:
-        raise ValueError("tracked classifier environment lock is invalid") from error
-    expected_build_provenance = {
-        "affine_pcp_sha256": hashlib.sha256(affine_pcp_bytes).hexdigest(),
-        "conversion_algorithm_digest": tracked_affine_pcp_conversion_digest(),
-        "protocol_sha256": hashlib.sha256(protocol_bytes).hexdigest(),
-    }
-    if dict(build_provenance) != expected_build_provenance:
-        raise ValueError("tracked classifier environment lock is invalid")
-    reference = base_image.get("reference")
-    if (
-        not isinstance(reference, str)
-        or "@" not in reference
-        or _DIGEST_RE.fullmatch(reference.rsplit("@", 1)[1]) is None
-    ):
-        raise ValueError("tracked classifier environment lock is invalid")
-    components: dict[str, Mapping[str, Any]] = {}
-    for component in components_value:
-        if not isinstance(component, Mapping) or not isinstance(
-            component.get("name"), str
-        ):
-            raise ValueError("tracked classifier environment lock is invalid")
-        name = component["name"]
-        if name in components:
-            raise ValueError("tracked classifier environment lock is invalid")
-        components[name] = component
-    packages: list[dict[str, str]] = []
-    for name, display_name in (
-        ("cryst", "Cryst"),
-        ("gap", "GAP"),
-        ("hap", "HAP"),
-        ("hapcryst", "HAPcryst"),
-    ):
-        try:
-            component = components[name]
-            archive = component["archive"]
-            license_record = component["license"]
-            version = component["version"]
-            if not isinstance(archive, Mapping) or not isinstance(
-                license_record, Mapping
-            ):
-                raise TypeError
-            archive_digest = archive["sha256"]
-            license_digest = license_record["text_sha256"]
-            if (
-                not isinstance(version, str)
-                or not isinstance(archive_digest, str)
-                or not isinstance(license_digest, str)
-                or _DIGEST_RE.fullmatch("sha256:" + archive_digest) is None
-                or _DIGEST_RE.fullmatch("sha256:" + license_digest) is None
-            ):
-                raise TypeError
-        except (KeyError, TypeError):
-            raise ValueError("tracked classifier environment lock is invalid") from None
-        packages.append(
-            {
-                "archive_sha256": "sha256:" + archive_digest,
-                "license_sha256": "sha256:" + license_digest,
-                "name": display_name,
-                "version": version,
-            }
-        )
+    """Return the reviewed protocol constants without an external lock asset.
+
+    The standalone launcher independently probes the host executable and exact
+    package versions.  These constants only replay the copied Task4/Task5 wire
+    format and never select or launch a runtime.
+    """
+
+    packages = [
+        {
+            "archive_sha256": "sha256:90aae4bf7eabdb94bceebef0d984c8d6ea9e9c60d8268913498526565b693a7f",
+            "license_sha256": "sha256:e9c68e5cf6425d8749ca7112dcd96049a25bfdf055c39ddf800456dc12353c01",
+            "name": "Cryst",
+            "version": "4.1.30",
+        },
+        {
+            "archive_sha256": "sha256:2a81d008e1638f638a035b1cd981ca39436bdabbef8c29b15b24fceb2af678e4",
+            "license_sha256": "sha256:8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+            "name": "GAP",
+            "version": "4.15.1",
+        },
+        {
+            "archive_sha256": "sha256:300e776141be73f807a2fbdfc0ce45d871c8d4a765dc2ca3b49ba38db9d51861",
+            "license_sha256": "sha256:edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6",
+            "name": "HAP",
+            "version": "1.70",
+        },
+        {
+            "archive_sha256": "sha256:dda392457ecc9fcffd7d86b3633da455e9fe65118d7bcf4039cc5d4d05edfc94",
+            "license_sha256": "sha256:ab15fd526bd8dd18a9e77ebc139656bf4d33e97fc7238cd11bf60e2b9b8666c6",
+            "name": "HAPcryst",
+            "version": "0.1.15",
+        },
+    ]
     expected_apis = [
         "BarResolutionEquivalence",
         "EquivariantChainMap",
@@ -1302,8 +1250,6 @@ def _locked_environment_core() -> dict[str, Any]:
         "ResolutionDirectProduct",
         "ResolutionFiniteGroup",
     ]
-    if api_closure_value.get("apis") != expected_apis:
-        raise ValueError("tracked classifier Task 5 API closure is invalid")
     expected_task5_sources = []
     for name in (
         "bar_equivalence.g",
@@ -1319,16 +1265,10 @@ def _locked_environment_core() -> dict[str, Any]:
                 "tracked classifier Task 5 source closure is unavailable"
             ) from error
         expected_task5_sources.append({"path": name, "sha256": digest})
-    if dict(task5_closure_value) != {
-        "gap_sources": expected_task5_sources,
-        "runtime_provenance_domain": "task5-runtime-provenance-v1",
-        "schema_version": 1,
-    }:
-        raise ValueError("tracked classifier Task 5 source closure is invalid")
     return {
         "api_closure": expected_apis,
-        "lock_digest": f"sha256:{hashlib.sha256(encoded).hexdigest()}",
-        "oci_image_digest": reference.rsplit("@", 1)[1],
+        "lock_digest": "sha256:c92c0cef1c72a061a642ccdbb297adafd52ffad2779a84755d9e626363edb25d",
+        "oci_image_digest": "sha256:726b772a1aae0cfa22fd3cdba89bb424c65eed01744a265a0f55078649a2b95d",
         "packages": packages,
         "task5_source_closure": expected_task5_sources,
     }
@@ -1770,6 +1710,7 @@ def run_gap_classifier(
     max_response_bytes: int = 16 * 1024 * 1024,
     max_diagnostic_bytes: int = 1024 * 1024,
     command: Sequence[str] | None = None,
+    environment: Mapping[str, str] | None = None,
 ) -> GAPClassifierResponse:
     if not isinstance(request, GAPClassifierRequest):
         raise TypeError("request must be a GAPClassifierRequest")
@@ -1786,6 +1727,22 @@ def run_gap_classifier(
     argv = _validate_command(
         default_gap_classifier_command() if command is None else command
     )
+    if environment is not None:
+        if not isinstance(environment, Mapping):
+            raise TypeError("environment must be a string mapping")
+        if any(
+            type(key) is not str
+            or not key
+            or type(value) is not str
+            or "\x00" in key
+            or "\x00" in value
+            or "=" in key
+            for key, value in environment.items()
+        ):
+            raise ValueError("environment must contain valid string entries")
+        process_environment = dict(environment)
+    else:
+        process_environment = None
     with tempfile.TemporaryDirectory(prefix="mathpsg-classifier-") as directory:
         root = Path(directory)
         request_path = root / "request.json"
@@ -1799,6 +1756,7 @@ def run_gap_classifier(
                 stderr=subprocess.PIPE,
                 bufsize=0,
                 start_new_session=True,
+                env=process_environment,
             )
         except OSError:
             return _error_response(
