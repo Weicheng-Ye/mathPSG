@@ -81,15 +81,16 @@ mathpsg doctor --gap /absolute/path/to/gap
 
 ## Run
 
-No Python installation step is required. From this directory:
+From the repository directory, you can run the package directly without
+installing it:
 
 ```bash
 python3 -m psgmath doctor
 ```
 
-The `pyproject.toml` console entry point is also available when ordinary Python
-build tooling is installed, but the documented path has no third-party Python
-requirement.
+If you installed and activated the virtual environment described above, you
+can use the shorter `mathpsg` command in place of `python3 -m psgmath` in all
+the examples below.
 
 Generate or replay the exact catalogue for one space group:
 
