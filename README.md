@@ -1,35 +1,36 @@
 # MathPSG Standalone
 
-This is a compact Python/GAP extraction from the larger MathPSG research
-repository. It treats all IT numbers 1 through 230 through one on-demand GAP
-path. Former benchmark groups have no special cases.
+MathPSG Standalone is a Python and GAP toolkit for working with all 230
+three-dimensional space-group types. It builds exact Wyckoff-position
+catalogues and generates machine-checkable evidence for spatial and
+onsite-time conversions.
 
-The repository implements:
+> **Scope:** this package produces Wyckoff-position catalogues and conversion
+> evidence. It does not calculate final PSG class counts and does not provide a
+> `classify()` API.
 
-- strict discovery and provenance for a local GAP installation;
-- exact GAP/Cryst Wyckoff geometry for any IT number, normalized and cached on
-  demand;
-- replay-verified affine-to-PCP conversion evidence for spatial and onsite-time
-  modes;
-- the copied generic exact-algebra, Z2, and U1 solver source modules.
+## Features
 
-It deliberately does **not** expose `classify()`. The source snapshot has no
-reviewed host-native bridge from live GAP evidence into the final Z2/U1 solver
-inputs. That unfinished feature is omitted instead of being simulated. The
-standalone commands calculate crystallographic and conversion evidence, not
-final PSG class counts.
+- One uniform calculation path for IT numbers 1 through 230.
+- Exact space-group and Wyckoff-position geometry from GAP and Cryst.
+- Spatial and onsite-time conversion modes.
+- Canonical JSON output checked by Python before it is returned.
+- Content-addressed catalogue caching.
+- Exact runtime provenance, including the GAP executable digest and package
+  versions.
+- No third-party Python runtime dependencies.
 
 ## Requirements
 
-- Python 3.11 or newer; no third-party Python runtime packages.
-- GAP available locally.
-- GAP packages Cryst, HAP, HAPcryst, json, and io.
+- Python 3.11 or newer.
+- GAP available through `PATH`, or selected with the `--gap` option on
+  `doctor`, `catalogue`, and `evidence`.
+- The GAP packages listed below.
 
-The development host used these exact observed versions:
+The calculation code requires these exact GAP and package versions:
 
 | Component | Version |
 |---|---:|
-| Python | 3.14.6 |
 | GAP | 4.15.1 |
 | Cryst | 4.1.30 |
 | HAP | 1.70 |
@@ -37,106 +38,185 @@ The development host used these exact observed versions:
 | json | 2.2.3 |
 | io | 4.9.3 |
 
-Every command probes and records the versions actually used. Evidence is
-labeled `host-native`, never release-certified.
-
-## Install for use from any directory
-
-The recommended setup is an editable installation in a dedicated virtual
-environment:
+Check the active runtime with:
 
 ```bash
-python3 -m venv ~/.venvs/mathpsg
-source ~/.venvs/mathpsg/bin/activate
-python -m pip install -e ~/Downloads/mathpsg-standalone
+gap -q -c 'Print(GAPInfo.Version, "\n"); QUIT;'
 ```
 
-After activation, the package and command are available from any directory:
+## Installation
+
+Clone this repository, enter its directory, and create a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+```
+
+The `mathpsg` command is then available from any directory while the virtual
+environment is active:
 
 ```bash
 mathpsg doctor
+```
+
+Activate the environment again in a new terminal session with:
+
+```bash
+source /path/to/mathpsg-standalone/.venv/bin/activate
+```
+
+An installation is optional. From the repository directory, every command can
+also be run as `python3 -m psgmath`.
+
+## Quick start
+
+Inspect the Python and GAP runtime:
+
+```bash
+mathpsg doctor
+```
+
+Generate the Wyckoff catalogue for space group 227:
+
+```bash
 mathpsg catalogue --it-number 227
-python -c 'from psgmath import probe_gap; print(probe_gap())'
 ```
 
-Activate the environment again in each new terminal session:
+Generate spatial conversion evidence for space group 1:
 
 ```bash
-source ~/.venvs/mathpsg/bin/activate
+mathpsg evidence --it-number 1 --mode spatial
 ```
 
-To use the package without installing it, set `PYTHONPATH` for the command:
+Generate onsite-time conversion evidence:
 
 ```bash
-PYTHONPATH=~/Downloads/mathpsg-standalone \
-  python3 -m psgmath catalogue --it-number 227
+mathpsg evidence --it-number 1 --mode onsite-time
 ```
 
-The local `gap` executable must be available through `PATH`. To use a specific
-executable, pass its absolute path, for example:
+Display the available modules and public interfaces:
 
 ```bash
+mathpsg capabilities
+```
+
+All commands emit canonical JSON.
+
+## Commands
+
+### `doctor`
+
+Reports:
+
+- Python implementation, executable, and version;
+- MathPSG Standalone version;
+- resolved GAP executable and its SHA-256 digest;
+- GAP and GAP-package versions;
+- source digest used to identify the installed code.
+
+```bash
+mathpsg doctor
 mathpsg doctor --gap /absolute/path/to/gap
 ```
 
-## Run
+### `catalogue`
 
-From the repository directory, you can run the package directly without
-installing it:
-
-```bash
-python3 -m psgmath doctor
-```
-
-If you installed and activated the virtual environment described above, you
-can use the shorter `mathpsg` command in place of `python3 -m psgmath` in all
-the examples below.
-
-Generate or replay the exact catalogue for one space group:
+Generates or loads the exact catalogue for one IT number:
 
 ```bash
-python3 -m psgmath catalogue --it-number 227
+mathpsg catalogue --it-number 70
+mathpsg catalogue --it-number 227 --cache /path/to/cache
 ```
 
-Generate the implemented GAP conversion evidence for every Wyckoff position in
-one setting:
+Valid IT numbers are 1 through 230. The output contains the setting, Wyckoff
+labels, site-symmetry symbols, and stable identifiers for the Wyckoff
+positions.
+
+### `evidence`
+
+Runs the local GAP conversion calculation and checks the returned certificate
+in Python:
 
 ```bash
-python3 -m psgmath evidence --it-number 1 --mode spatial
-python3 -m psgmath evidence --it-number 1 --mode onsite-time
+mathpsg evidence --it-number 99 --mode spatial
+mathpsg evidence --it-number 99 --mode onsite-time
 ```
 
-Inspect the exact implementation boundary:
+The evidence command processes every Wyckoff position in the selected setting.
+Its summary includes the request digest, certificate digest, member IDs, and
+mode.
+
+### `capabilities`
+
+Reports which mathematical modules and public interfaces are available:
 
 ```bash
-python3 -m psgmath capabilities
+mathpsg capabilities
 ```
 
-Use `--gap /absolute/path/to/gap` to select a GAP executable and `--cache PATH`
-to place generated data somewhere other than the platform user cache.
+## Python usage
 
-## Cache and provenance
+Runtime discovery is available as a Python API:
 
-Generated catalogues live outside the repository. Catalogue cache keys bind the
-IT number, GAP executable bytes, observed GAP/package versions, copied exporter
-and normalizer bytes, display-crosswalk bytes, and the complete standalone
-source inventory. A compact 230-row action-binding table prevents a
-self-rehashed cache from changing the ambient space-group generators. Cached
-canonical JSON is re-parsed and semantically replayed before reuse.
+```python
+from psgmath import probe_gap
 
-`EXTRACTED_SOURCES.json` records every retained file and, where it was copied,
-its original source digest. `mathpsg doctor` verifies that inventory and reports
-the Python executable/version, package version, GAP executable/digest, GAP
-version, and all required GAP-package versions.
+runtime = probe_gap()
+print(runtime.gap_version)
+print(dict(runtime.packages))
+```
 
-## Excluded material
+The exact-algebra modules are importable under `psgmath`. The public high-level
+interface covers catalogue generation and conversion evidence, but not final
+PSG classification results.
 
-The extraction contains no container setup, PyXtal dependency, benchmark
-calculator, signed release store, precomputed all-group geometry, generated
-atlas, model artifacts, manuscript, or historical production cache. It also
-omits the large precomputed Z2 stabilizer-skeleton tables; the corresponding
-generic source remains present for inspection and future wiring, but it is not
-advertised as a runnable final calculator.
+## Cache and reproducibility
 
-See [docs/architecture.md](docs/architecture.md) for the data flow and trust
-boundary, and [VERIFICATION.md](VERIFICATION.md) for checks run on this copy.
+Generated catalogues are stored outside the repository. The default location
+is the platform user cache directory; use `--cache PATH` to choose another
+location.
+
+Each cache entry records:
+
+- the requested IT number;
+- GAP executable bytes and observed package versions;
+- catalogue exporter and normalizer sources;
+- the packaged display and action data;
+- a digest of the installed source files.
+
+Cached records are parsed and checked again before reuse. Space-group coverage,
+record counts, actions, provenance fields, and identifiers must match the
+recorded calculation inputs.
+
+Outputs use the status `host-native`, meaning that they record the local Python
+and GAP runtime used for the calculation.
+
+## Development
+
+Run the test suite from the repository root:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 \
+  python3 -W error::ResourceWarning -m unittest discover -s tests -v
+```
+
+The verification record includes real local-GAP checks for representative
+space groups and both evidence modes. See [VERIFICATION.md](VERIFICATION.md).
+
+## Repository layout
+
+```text
+psgmath/                 Python package
+psgmath/_assets/         Packaged GAP scripts and reference bindings
+gap/catalogue/           GAP crystallographic catalogue exporter
+gap/classifier/          GAP affine/PCP conversion backend
+resources/               Display crosswalk and action bindings
+tests/                   Unit and local-GAP integration tests
+docs/architecture.md     Data flow and validation design
+```
+
+## License
+
+See [LICENSE](LICENSE).
