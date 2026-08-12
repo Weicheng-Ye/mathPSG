@@ -1,0 +1,1821 @@
+{
+  "cases": [
+    {
+      "arguments": [
+        1,
+        [
+          "a"
+        ]
+      ],
+      "expected": {
+        "class_count": 8,
+        "continuous": false,
+        "details": {
+          "quotient": {
+            "continuous_family_count": 0,
+            "framed_finite_cardinality": 8,
+            "unframed_finite_cardinality": 8
+          },
+          "strata": [
+            {
+              "basepoint": [
+                0,
+                0,
+                0
+              ],
+              "dimension": 3,
+              "framed_finite_cardinality": 8,
+              "kind": "finite-affine-z2",
+              "quotient_basis": [
+                [
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1
+                ]
+              ],
+              "unframed_finite_cardinality": 8
+            }
+          ]
+        },
+        "request": {
+          "igg": "Z2",
+          "setting": "1",
+          "space_group": 1,
+          "time_reversal": false,
+          "wps": [
+            "a"
+          ]
+        },
+        "summaries": [
+          {
+            "dimension": 3,
+            "framed_finite_cardinality": 8,
+            "kind": "finite-affine-z2",
+            "unframed_finite_cardinality": 8
+          }
+        ]
+      },
+      "keywords": {
+        "details": true,
+        "igg": "Z2",
+        "time_reversal": false
+      },
+      "name": "sg1_a_z2"
+    },
+    {
+      "arguments": [
+        1,
+        [
+          "a"
+        ]
+      ],
+      "expected": {
+        "class_count": 128,
+        "continuous": false,
+        "details": {
+          "quotient": {
+            "continuous_family_count": 0,
+            "framed_finite_cardinality": 128,
+            "unframed_finite_cardinality": 128
+          },
+          "strata": [
+            {
+              "basepoint": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "dimension": 6,
+              "framed_finite_cardinality": 64,
+              "kind": "finite-affine-z2",
+              "quotient_basis": [
+                [
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0
+                ]
+              ],
+              "unframed_finite_cardinality": 64
+            },
+            {
+              "basepoint": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0
+              ],
+              "dimension": 6,
+              "framed_finite_cardinality": 64,
+              "kind": "finite-affine-z2",
+              "quotient_basis": [
+                [
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0
+                ]
+              ],
+              "unframed_finite_cardinality": 64
+            }
+          ]
+        },
+        "request": {
+          "igg": "Z2",
+          "setting": "1",
+          "space_group": 1,
+          "time_reversal": true,
+          "wps": [
+            "a"
+          ]
+        },
+        "summaries": [
+          {
+            "dimension": 6,
+            "framed_finite_cardinality": 64,
+            "kind": "finite-affine-z2",
+            "unframed_finite_cardinality": 64
+          },
+          {
+            "dimension": 6,
+            "framed_finite_cardinality": 64,
+            "kind": "finite-affine-z2",
+            "unframed_finite_cardinality": 64
+          }
+        ]
+      },
+      "keywords": {
+        "details": true,
+        "igg": "Z2",
+        "time_reversal": true
+      },
+      "name": "sg1_a_z2_time_reversal"
+    },
+    {
+      "arguments": [
+        1,
+        [
+          "a"
+        ]
+      ],
+      "expected": {
+        "class_count": null,
+        "continuous": true,
+        "details": {
+          "quotient": {
+            "continuous_family_count": 1,
+            "framed_finite_cardinality": null,
+            "unframed_finite_cardinality": null
+          },
+          "strata": [
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 2,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                0,
+                1
+              ],
+              "torsion_orders": [
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 2,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                1,
+                0
+              ],
+              "torsion_orders": [
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 2,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                1,
+                1
+              ],
+              "torsion_orders": [
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 2,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                0,
+                0
+              ],
+              "torsion_orders": [
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 2,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                0,
+                1
+              ],
+              "torsion_orders": [
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 2,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                1,
+                0
+              ],
+              "torsion_orders": [
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 2,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                1,
+                1
+              ],
+              "torsion_orders": [
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0"
+              ],
+              "formal_parameters": [
+                "phi0",
+                "phi1",
+                "phi2"
+              ],
+              "free_rank": 3,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                0,
+                0
+              ],
+              "torsion_orders": []
+            }
+          ]
+        },
+        "request": {
+          "igg": "U1",
+          "setting": "1",
+          "space_group": 1,
+          "time_reversal": false,
+          "wps": [
+            "a"
+          ]
+        },
+        "summaries": [
+          {
+            "finite_class_count": 2,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2
+            ]
+          },
+          {
+            "finite_class_count": 2,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2
+            ]
+          },
+          {
+            "finite_class_count": 2,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2
+            ]
+          },
+          {
+            "finite_class_count": 2,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2
+            ]
+          },
+          {
+            "finite_class_count": 2,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2
+            ]
+          },
+          {
+            "finite_class_count": 2,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2
+            ]
+          },
+          {
+            "finite_class_count": 2,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2
+            ]
+          },
+          {
+            "free_rank": 3,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": []
+          }
+        ]
+      },
+      "keywords": {
+        "details": true,
+        "igg": "U1",
+        "time_reversal": false
+      },
+      "name": "sg1_a_u1"
+    },
+    {
+      "arguments": [
+        1,
+        [
+          "a"
+        ]
+      ],
+      "expected": {
+        "class_count": null,
+        "continuous": true,
+        "details": {
+          "quotient": {
+            "continuous_family_count": 1,
+            "framed_finite_cardinality": null,
+            "unframed_finite_cardinality": null
+          },
+          "strata": [
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 16,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                0,
+                1,
+                0
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 16,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                1,
+                0,
+                0
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 16,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                1,
+                1,
+                0
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 16,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                0,
+                0,
+                0
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 16,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                0,
+                1,
+                0
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 16,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                1,
+                0,
+                0
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 16,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                1,
+                1,
+                0
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 8,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 8,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 8,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                1,
+                0,
+                1
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 8,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                1,
+                1,
+                1
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 8,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                0,
+                0,
+                1
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 8,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                0,
+                1,
+                1
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 8,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                1,
+                0,
+                1
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "finite_class_count": 8,
+              "formal_parameters": [],
+              "free_rank": 0,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                1,
+                1,
+                1,
+                1
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2
+              ]
+            },
+            {
+              "basepoint_phases": [
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+              ],
+              "formal_parameters": [
+                "phi0",
+                "phi1",
+                "phi2"
+              ],
+              "free_rank": 3,
+              "kind": "compact-u1-torsor",
+              "rho_bits": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "torsion_orders": [
+                2,
+                2,
+                2
+              ]
+            }
+          ]
+        },
+        "request": {
+          "igg": "U1",
+          "setting": "1",
+          "space_group": 1,
+          "time_reversal": true,
+          "wps": [
+            "a"
+          ]
+        },
+        "summaries": [
+          {
+            "finite_class_count": 16,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 16,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 16,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 16,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 16,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 16,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 16,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 8,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 8,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 8,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 8,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 8,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 8,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 8,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "finite_class_count": 8,
+            "free_rank": 0,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2
+            ]
+          },
+          {
+            "free_rank": 3,
+            "kind": "compact-u1-torsor",
+            "torsion_orders": [
+              2,
+              2,
+              2
+            ]
+          }
+        ]
+      },
+      "keywords": {
+        "details": true,
+        "igg": "U1",
+        "time_reversal": true
+      },
+      "name": "sg1_a_u1_time_reversal"
+    },
+    {
+      "arguments": [
+        1,
+        [
+          "a",
+          "a"
+        ]
+      ],
+      "expected": {
+        "class_count": 8,
+        "continuous": false,
+        "details": {
+          "quotient": {
+            "continuous_family_count": 0,
+            "framed_finite_cardinality": 8,
+            "unframed_finite_cardinality": 8
+          },
+          "strata": [
+            {
+              "basepoint": [
+                0,
+                0,
+                0
+              ],
+              "dimension": 3,
+              "framed_finite_cardinality": 8,
+              "kind": "finite-affine-z2",
+              "quotient_basis": [
+                [
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1
+                ]
+              ],
+              "unframed_finite_cardinality": 8
+            }
+          ]
+        },
+        "request": {
+          "igg": "Z2",
+          "setting": "1",
+          "space_group": 1,
+          "time_reversal": false,
+          "wps": [
+            "a",
+            "a"
+          ]
+        },
+        "summaries": [
+          {
+            "dimension": 3,
+            "framed_finite_cardinality": 8,
+            "kind": "finite-affine-z2",
+            "unframed_finite_cardinality": 8
+          }
+        ]
+      },
+      "keywords": {
+        "details": true,
+        "igg": "Z2",
+        "time_reversal": false
+      },
+      "name": "sg1_repeated_a_z2"
+    },
+    {
+      "arguments": [
+        2,
+        [
+          "a",
+          "b"
+        ]
+      ],
+      "expected": {
+        "class_count": 128,
+        "continuous": false,
+        "details": {
+          "quotient": {
+            "continuous_family_count": 0,
+            "framed_finite_cardinality": 128,
+            "unframed_finite_cardinality": 128
+          },
+          "strata": [
+            {
+              "basepoint": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "dimension": 5,
+              "framed_finite_cardinality": 32,
+              "kind": "finite-affine-z2",
+              "quotient_basis": [
+                [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0
+                ]
+              ],
+              "unframed_finite_cardinality": 32
+            },
+            {
+              "basepoint": [
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "dimension": 5,
+              "framed_finite_cardinality": 32,
+              "kind": "finite-affine-z2",
+              "quotient_basis": [
+                [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0
+                ]
+              ],
+              "unframed_finite_cardinality": 32
+            },
+            {
+              "basepoint": [
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "dimension": 5,
+              "framed_finite_cardinality": 32,
+              "kind": "finite-affine-z2",
+              "quotient_basis": [
+                [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0
+                ]
+              ],
+              "unframed_finite_cardinality": 32
+            },
+            {
+              "basepoint": [
+                1,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "dimension": 5,
+              "framed_finite_cardinality": 32,
+              "kind": "finite-affine-z2",
+              "quotient_basis": [
+                [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0
+                ]
+              ],
+              "unframed_finite_cardinality": 32
+            }
+          ]
+        },
+        "request": {
+          "igg": "Z2",
+          "setting": "1",
+          "space_group": 2,
+          "time_reversal": false,
+          "wps": [
+            "a",
+            "b"
+          ]
+        },
+        "summaries": [
+          {
+            "dimension": 5,
+            "framed_finite_cardinality": 32,
+            "kind": "finite-affine-z2",
+            "unframed_finite_cardinality": 32
+          },
+          {
+            "dimension": 5,
+            "framed_finite_cardinality": 32,
+            "kind": "finite-affine-z2",
+            "unframed_finite_cardinality": 32
+          },
+          {
+            "dimension": 5,
+            "framed_finite_cardinality": 32,
+            "kind": "finite-affine-z2",
+            "unframed_finite_cardinality": 32
+          },
+          {
+            "dimension": 5,
+            "framed_finite_cardinality": 32,
+            "kind": "finite-affine-z2",
+            "unframed_finite_cardinality": 32
+          }
+        ]
+      },
+      "keywords": {
+        "details": true,
+        "igg": "Z2",
+        "time_reversal": false
+      },
+      "name": "sg2_a_b_z2"
+    },
+    {
+      "arguments": [
+        3,
+        [
+          "a"
+        ]
+      ],
+      "expected": {
+        "class_count": 128,
+        "continuous": false,
+        "details": {
+          "quotient": {
+            "continuous_family_count": 0,
+            "framed_finite_cardinality": 128,
+            "unframed_finite_cardinality": 128
+          },
+          "strata": [
+            {
+              "basepoint": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "dimension": 6,
+              "framed_finite_cardinality": 64,
+              "kind": "finite-affine-z2",
+              "quotient_basis": [
+                [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0
+                ]
+              ],
+              "unframed_finite_cardinality": 64
+            },
+            {
+              "basepoint": [
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "dimension": 6,
+              "framed_finite_cardinality": 64,
+              "kind": "finite-affine-z2",
+              "quotient_basis": [
+                [
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0
+                ]
+              ],
+              "unframed_finite_cardinality": 64
+            }
+          ]
+        },
+        "request": {
+          "igg": "Z2",
+          "setting": "b",
+          "space_group": 3,
+          "time_reversal": false,
+          "wps": [
+            "a"
+          ]
+        },
+        "summaries": [
+          {
+            "dimension": 6,
+            "framed_finite_cardinality": 64,
+            "kind": "finite-affine-z2",
+            "unframed_finite_cardinality": 64
+          },
+          {
+            "dimension": 6,
+            "framed_finite_cardinality": 64,
+            "kind": "finite-affine-z2",
+            "unframed_finite_cardinality": 64
+          }
+        ]
+      },
+      "keywords": {
+        "details": true,
+        "igg": "Z2",
+        "setting": "b",
+        "time_reversal": false
+      },
+      "name": "sg3_a_z2_setting_b"
+    }
+  ]
+}

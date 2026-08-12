@@ -1,6 +1,5 @@
 #############################################################################
-## Full sparse low-degree resolution export.  HAP is an untrusted producer:
-## the Python verifier replays every product and every d_{n-1} d_n identity.
+## Low-degree resolution data used by the physical solver.
 #############################################################################
 
 MathPSGClassifierTask5PcpWord := function(pcp, element)
@@ -77,98 +76,29 @@ MathPSGClassifierTask5BoundaryMatrix := function(resolution, degree, normalForm)
     );
 end;
 
-MathPSGClassifierTask5ResolutionCore := function(
-    resolution, groupId, affineCertificate, finiteGroup, construction,
-    backendBinding, catalogueRecordDigest
-)
-    local basis, boundaries, degree, degreeFiveBasis, lookahead;
-    basis := [];
-    for degree in [0..4] do
-        Add(basis, MathPSGClassifierTask5Basis(
-            degree, resolution!.dimension(degree)
-        ));
-    od;
-    boundaries := [];
-    for degree in [1..4] do
-        Add(boundaries, MathPSGClassifierTask5BoundaryMatrix(
-            resolution, degree, construction.normal_form
-        ));
-    od;
-    degreeFiveBasis := MathPSGClassifierTask5Basis(
-        5, resolution!.dimension(5)
-    );
-    lookahead := MathPSGClassifierTask5BoundaryMatrix(
-        resolution, 5, construction.normal_form
-    );
-    return rec(
-        affine_pcp_certificate := affineCertificate,
-        affine_pcp_certificate_digest := affineCertificate.certificate_digest,
-        backend_environment_id := backendBinding.backend_environment_id,
-        backend_lock_digest := backendBinding.backend_lock_digest,
-        basis := basis,
-        boundaries := boundaries,
-        catalogue_record_digest := catalogueRecordDigest,
-        construction := construction.name,
-        degree_five_basis := degreeFiveBasis,
-        finite_group := finiteGroup,
-        group_id := groupId,
-        lookahead_boundary := lookahead,
-        max_degree := 4,
-        runtime_provenance_digest := backendBinding.runtime_provenance_digest
-    );
-end;
-
-MathPSGClassifierTask5ResolutionCertificate := function(
-    resolution, groupId, affineCertificate, finiteGroup, construction,
-    backendBinding, catalogueRecordDigest
-)
-    local core, result;
-    core := MathPSGClassifierTask5ResolutionCore(
-        resolution, groupId, affineCertificate, finiteGroup, construction,
-        backendBinding, catalogueRecordDigest
-    );
-    result := ShallowCopy(core);
-    result.record_type := "free-resolution-certificate";
-    result.resolution_id := MathPSGClassifierDigest(
-        "task5-free-resolution-certificate-v1", core
-    );
-    result.schema_version := 1;
-    return result;
-end;
-
 MathPSGClassifierTask5AmbientResolution := function(pcpGroup, withTime)
     local spatial, time;
-    # One lookahead degree is required because EquivariantChainMap computes
-    # its degree-four value using the target contraction into degree five.
-    spatial := ResolutionAlmostCrystalGroup(pcpGroup, 5);
+    spatial := ResolutionAlmostCrystalGroup(pcpGroup, 3);
     if not withTime then return spatial; fi;
-    time := ResolutionFiniteGroup(CyclicGroup(IsPermGroup, 2), 5);
+    time := ResolutionFiniteGroup(CyclicGroup(IsPermGroup, 2), 3);
     return ResolutionDirectProduct(spatial, time);
 end;
 
 MathPSGClassifierTask5FiniteResolution := function(group)
-    # Degree five is a construction-only lookahead for the degree-four
-    # contracting homotopies; certificate matrices are truncated at four.
-    return ResolutionFiniteGroup(group, 5);
+    return ResolutionFiniteGroup(group, 3);
 end;
 
 MathPSGClassifierTask5RawResolution := function(resolution, normalForm)
     return rec(
-        basis := List([0..4], degree ->
+        basis := List([0..3], degree ->
             MathPSGClassifierTask5Basis(
                 degree, resolution!.dimension(degree)
             )
         ),
-        boundaries := List([1..4], degree ->
+        boundaries := List([1..3], degree ->
             MathPSGClassifierTask5BoundaryMatrix(
                 resolution, degree, normalForm
             )
-        ),
-        degree_five_basis := MathPSGClassifierTask5Basis(
-            5, resolution!.dimension(5)
-        ),
-        lookahead_boundary := MathPSGClassifierTask5BoundaryMatrix(
-            resolution, 5, normalForm
         )
     );
 end;
@@ -185,26 +115,4 @@ MathPSGClassifierTask5DirectProductNormalForm := function(
     fi;
     if spatialName = "1" then return timeName; fi;
     return Concatenation(spatialName, "+", timeName);
-end;
-
-MathPSGClassifierTask5LiveD4Probe := function()
-    local group, resolution, equivalence, generators, identity, word, image;
-    group := DihedralGroup(IsPermGroup, 8);
-    resolution := ResolutionFiniteGroup(group, 4);
-    equivalence := BarResolutionEquivalence(resolution);
-    generators := GeneratorsOfGroup(group);
-    if generators[1] * generators[2] = generators[2] * generators[1] then
-        Error("D4 probe unexpectedly commutes");
-    fi;
-    identity := Identity(group);
-    word := [[1, identity, generators[1], generators[2], generators[1]]];
-    image := equivalence!.equiv(3, word);
-    if image = fail then Error("length-three bar homotopy probe failed"); fi;
-    return Concatenation(
-        "task5-live-d4:",
-        JoinStringsWithSeparator(
-            List([0..4], degree -> String(resolution!.dimension(degree))), ","
-        ),
-        ":noncommuting:length3"
-    );
 end;

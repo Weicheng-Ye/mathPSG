@@ -7,6 +7,10 @@ dist/
 *.egg-info/
 .coverage
 .pytest_cache/
-run/
-cache/
 *.tmp
+
+# Local development-only records
+/AGENTS.md
+/EXTRACTED_SOURCES.json
+/VERIFICATION.md
+/docs/

@@ -1,71 +1,42 @@
 from __future__ import annotations
 
-import re
+import os
 from pathlib import Path
 import shutil
+import tempfile
 import unittest
-from unittest import mock
 
-import mathpsg.local_gap as local_gap
-from mathpsg.local_gap import (
-    GapRuntimeError,
-    host_provenance,
-    parse_gap_probe,
-    probe_gap,
-    source_inventory_digest,
-)
+from mathpsg.local_gap import GapRuntimeError, parse_gap_probe, probe_gap
 
 
 class LocalGapTests(unittest.TestCase):
-    def test_parse_probe_requires_exact_package_set(self) -> None:
-        transcript = "\n".join(
-            (
-                "GAP=4.15.1",
-                "Cryst=4.1.30",
-                "HAP=1.70",
-                "HAPcryst=0.1.15",
-                "json=2.2.3",
-                "io=4.9.3",
-            )
-        )
-        executable = shutil.which("gap")
-        self.assertIsNotNone(executable)
-        runtime = parse_gap_probe(transcript, executable=executable or "gap")
-        self.assertEqual(runtime.packages["json"], "2.2.3")
-        self.assertEqual(runtime.execution_mode, "host-native")
+    def _executable(self, body: str) -> str:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = Path(directory.name) / "fake-gap"
+        path.write_text("#!/bin/sh\n" + body, encoding="utf-8")
+        path.chmod(0o755)
+        return os.fspath(path)
 
-    def test_parse_probe_rejects_a_missing_package(self) -> None:
-        with self.assertRaisesRegex(GapRuntimeError, "io"):
-            parse_gap_probe(
-                "GAP=4.15.1\nCryst=4.1.30\nHAP=1.70\n"
-                "HAPcryst=0.1.15\njson=2.2.3\n",
-                executable=shutil.which("gap") or "gap",
-            )
-
-    def test_provenance_binds_runtime_and_source_inventory(self) -> None:
+    def test_real_gap_exists_terminates_and_returns_json(self) -> None:
         runtime = probe_gap()
-        record = host_provenance(runtime)
-        self.assertEqual(record["certification_status"], "host-native")
-        self.assertEqual(record["execution_mode"], "host-native")
-        self.assertEqual(record["gap"]["version"], "4.15.1")
-        self.assertRegex(
-            record["source_inventory_digest"], r"^sha256:[0-9a-f]{64}$"
-        )
-        self.assertEqual(
-            record["source_inventory_digest"], source_inventory_digest()
-        )
+        self.assertTrue(Path(runtime.executable).is_file())
 
-    def test_real_probe_records_required_packages(self) -> None:
-        runtime = probe_gap()
-        self.assertEqual(
-            set(runtime.packages), {"cryst", "hap", "hapcryst", "json", "io"}
-        )
-        self.assertTrue(re.fullmatch(r"sha256:[0-9a-f]{64}", runtime.executable_sha256))
+    def test_probe_rejects_unsuccessful_gap(self) -> None:
+        executable = self._executable("exit 7\n")
+        with self.assertRaisesRegex(GapRuntimeError, "unsuccessfully"):
+            probe_gap(executable)
 
-    def test_installed_package_fallback_hashes_its_actual_files(self) -> None:
-        with mock.patch.object(local_gap, "_INVENTORY", Path("/does/not/exist")):
-            digest = local_gap.source_inventory_digest()
-        self.assertRegex(digest, r"^sha256:[0-9a-f]{64}$")
+    def test_probe_rejects_non_json_output(self) -> None:
+        executable = self._executable("printf 'not-json\\n'\n")
+        with self.assertRaisesRegex(GapRuntimeError, "valid JSON"):
+            probe_gap(executable)
+
+    def test_probe_payload_has_no_version_contract(self) -> None:
+        runtime = parse_gap_probe(
+            '{"ok": true}', executable=shutil.which("gap") or "gap"
+        )
+        self.assertEqual(tuple(runtime.__dataclass_fields__), ("executable",))
 
 
 if __name__ == "__main__":

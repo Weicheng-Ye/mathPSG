@@ -11,20 +11,17 @@ license = {file = "LICENSE"}
 requires-python = ">=3.11"
 dependencies = []
 
-[project.scripts]
-mathpsg = "mathpsg.cli:main"
-
 [tool.setuptools.packages.find]
 include = ["mathpsg*"]
 
 [tool.setuptools.package-data]
 mathpsg = [
-    "_assets/data/stabilizers/v1/manifest.json",
-    "_assets/data/stabilizers/v1/types.ndjson",
-    "_assets/gap/classifier/lib/*.g",
-    "_assets/gap/classifier/export_problem.g",
-    "_assets/gap/catalogue/*.g",
-    "_assets/gap/catalogue/lib/*.g",
-    "_assets/resources/*.ndjson",
-    "_assets/resources/*.json",
+    "_assets/gap/catalogue/export_one.g",
+    "_assets/gap/catalogue/lib/normalize_affine.g",
+    "_assets/gap/classifier/lib/protocol.g",
+    "_assets/gap/classifier/lib/affine_pcp.g",
+    "_assets/gap/classifier/lib/resolutions.g",
+    "_assets/gap/classifier/lib/restrictions.g",
+    "_assets/gap/classifier/lib/bar_equivalence.g",
+    "_assets/resources/wyckoff-labels.json",
 ]

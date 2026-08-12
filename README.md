@@ -1,77 +1,55 @@
 # MathPSG
 
-MathPSG calculates Z2 and U1 projective symmetry group (PSG)
-classifications for occupied Wyckoff positions in all 230 three-dimensional
-space-group types. It uses one general Python/GAP pipeline, runs GAP locally,
-and returns exact class counts or continuous-family presentations with
-replay-checked evidence.
+MathPSG computes Z2 and compact-U1 projective symmetry group (PSG)
+classifications for occupied Wyckoff positions in three-dimensional space
+groups. It is a Python library with one public calculation function:
 
-This repository does not use Docker or PyXtal. It does not ship a precomputed
-classification atlas or special-case benchmark groups. Every query is computed
-from the selected local GAP installation and cached outside the package.
+```python
+import mathpsg
 
-## Features
+result = mathpsg.classify(1, ["a"], igg="Z2")
+```
 
-- IT numbers 1 through 230 through one uniform calculation path.
-- Z2 and compact-U1 IGGs, with spatial and onsite-time-reversal modes.
-- Simultaneous ordered occupancy of multiple Wyckoff positions.
-- Repeated labels retained as distinct occupied atom-orbit instances.
-- Exact finite PSG class counts and typed evidence for each class.
-- Exact continuous U1 presentations when a finite class count does not exist.
-- Content-addressed cache entries that are replayed before reuse.
-- Immutable, capability-free Python results and canonical JSON from the CLI.
-- Internal cache bindings to the Python source and exact GAP environment.
+Every result is calculated locally from the requested space group and
+occupancy. The package does not contain a precomputed classification atlas and
+does not provide a command-line interface.
+
+## What `classify` computes
+
+For one joint occupancy request, `classify`:
+
+1. obtains the space-group and stabilizer data from local GAP;
+2. enumerates every local PSG branch at every occupied Wyckoff position;
+3. solves the joint Z2 or U1 extension equations;
+4. quotients the solution spaces by gauge and residual symmetries; and
+5. counts the finite orbits or identifies continuous U1 families.
+
+GAP must exist, terminate successfully, and return valid JSON. MathPSG does
+not require an exact GAP/package version, replay certificates, validate a
+source-tree hash inventory, or keep a persistent result cache.
 
 ## Requirements
 
 - Python 3.11 or newer.
-- GAP available on `PATH`, or supplied explicitly with `gap=...` or `--gap`.
-- These exact GAP and package versions:
+- GAP on `PATH`, or an executable supplied with `gap=...`.
+- GAP packages used by the calculation: Cryst, HAP, HAPcryst, and json.
 
-| Component | Version |
-|---|---:|
-| GAP | 4.15.1 |
-| Cryst | 4.1.30 |
-| HAP | 1.70 |
-| HAPcryst | 0.1.15 |
-| json | 2.2.3 |
-| io | 4.9.3 |
-
-Check the active environment after installation:
-
-```bash
-mathpsg doctor
-```
-
-The calculator rejects a different GAP/package version instead of silently
-changing the computational environment.
+Package versions are not pinned. If GAP or a required package cannot perform
+the calculation, `classify` raises `ClassificationError`.
 
 ## Installation
-
-Clone the repository and install it into a virtual environment:
 
 ```bash
 git clone https://github.com/Weicheng-Ye/mathPSG.git
 cd mathPSG
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e .
+python -m pip install .
 ```
 
-The editable installation makes both `import mathpsg` and the `mathpsg`
-command available from any directory while the environment is active. In a
-new terminal, activate it with the absolute path to the environment:
-
-```bash
-source /path/to/mathPSG/.venv/bin/activate
-```
-
-For a regular non-editable installation, use `python -m pip install .` instead.
-No third-party Python runtime package is required.
+The package has no third-party Python runtime dependency.
 
 ## Python API
-
-The primary entry point is:
 
 ```python
 mathpsg.classify(
@@ -83,7 +61,6 @@ mathpsg.classify(
     setting=None,
     details=False,
     gap="gap",
-    cache=None,
     timeout=300,
 )
 ```
@@ -92,81 +69,142 @@ mathpsg.classify(
 
 | Argument | Meaning |
 |---|---|
-| `it_number` | International Tables space-group number, from `1` through `230`. |
-| `wps` | One Wyckoff label or a nonempty ordered sequence, for example `"a"`, `["a", "b"]`, or `["a", "a"]`. |
-| `igg` | Invariant gauge group: `"Z2"` or `"U1"`. The default is `"Z2"`. |
-| `time_reversal` | Include onsite time reversal when `True`. The default is spatial symmetry only. |
-| `setting` | Explicit catalogue setting, or `None` to accept the unique setting matching all requested labels. |
-| `details` | Include the complete immutable classification record when `True`; otherwise `result.details` is `None`. |
-| `gap` | GAP executable name or path. The default is `"gap"`. |
-| `cache` | Cache directory. `None` selects the platform user-cache directory. |
-| `timeout` | Positive per-classification timeout in seconds. The default is `300`. |
+| `it_number` | International Tables space-group number, normally `1` through `230`. |
+| `wps` | One Wyckoff label or an ordered iterable of labels, such as `"a"`, `["a", "b"]`, or `["a", "a"]`. |
+| `igg` | Invariant gauge group, `"Z2"` or `"U1"`. Letter case and surrounding whitespace are normalized. |
+| `time_reversal` | Whether to include onsite time reversal. |
+| `setting` | A specific space-group setting, or `None` when the requested labels select a unique setting. |
+| `details` | Include the physical presentation of every nonempty solution stratum when truthy. |
+| `gap` | GAP executable name or path. |
+| `timeout` | Maximum time in seconds for each GAP invocation, not an overall calculation deadline. |
 
-The input list is one joint physical occupancy configuration. For example,
-`["a", "b"]` performs one simultaneous relative classification; it does not
-run two unrelated classifications or multiply two independent counts.
-Likewise, `["a", "a"]` represents two distinct occupied atom-orbit instances
-at the same Wyckoff position. Input order and repeated instances are retained
-in the normalized request and detailed evidence.
+The Wyckoff list is one simultaneous physical occupancy. For example,
+`["a", "b"]` performs one joint relative classification; it does not multiply
+two independent answers. Repeated labels remain distinct occupied orbits, so
+`["a", "a"]` also denotes one joint problem with two instances.
 
-### Returned object
+There is no `cache` argument and no `validate` argument.
 
-`classify()` returns an immutable `HostNativeClassificationResult` with these
+## Result object
+
+`classify` returns an immutable `ClassificationResult` with exactly five
 attributes:
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `request` | `FrozenJSONObject` | Canonical resolved request, including the selected setting and one normalized orbit record per `wps` entry. |
-| `class_count` | `int \| None` | Exact number of unframed PSG classes when the quotient is finite; `None` when accepted U1 strata contain continuous families. |
-| `continuous` | `bool` | `True` exactly when continuous orbit presentations are present. Equivalently, `continuous == (class_count is None)`. |
-| `summaries` | `tuple[FrozenJSONObject, ...]` | One lightweight entry per nonempty solution stratum. A summary is a family of PSG solutions, not necessarily one PSG class. |
-| `details` | `FrozenJSONObject \| None` | Complete replayable record when `details=True`; otherwise `None`. |
-| `certification_status` | `str` | Currently `"host-native"`, indicating the exact local host calculation path. |
+| `request` | immutable mapping | The effective physical request: `space_group`, `setting`, `igg`, `time_reversal`, and `wps`. |
+| `class_count` | `int \| None` | Number of unframed PSG classes when the quotient is finite; `None` if continuous families occur. |
+| `continuous` | `bool` | Whether the final quotient contains at least one continuous family. |
+| `summaries` | tuple of immutable mappings | One compact physical summary for each nonempty solution stratum. |
+| `details` | immutable mapping or `None` | Full physical solution presentations when `details=True`; otherwise `None`. |
 
-Runtime provenance is deliberately not stored on or serialized with the
-classification result. GAP is still probed and bound internally for execution
-and cache safety.
+The result does not contain runtime measurements, certification status,
+certificate hashes, source hashes, cache metadata, backend objects, replay
+records, or opaque stratum/skeleton identifiers.
 
-`FrozenJSONObject` and `FrozenJSONArray` are read-only mapping-like and
-sequence-like containers. Use normal indexing:
+Mappings support normal indexing:
 
 ```python
 result.request["space_group"]
 result.summaries[0]["kind"]
-result.details["layer"]["framed_strata"][0]["dimension"]
 ```
 
-The objects cannot be modified in place. Opaque `sha256:...` values identify
-content and certificates; they are stable cross-references, not additional
-class counts or human-readable physical labels.
+### `summaries`
 
-### Basic finite Z2 example
+A summary describes one solution family (a stratum), not necessarily one PSG
+class. Therefore `len(result.summaries)` is generally not the same as
+`result.class_count`.
+
+For a Z2 stratum:
+
+```python
+{
+    "kind": "finite-affine-z2",
+    "dimension": 3,
+    "framed_finite_cardinality": 8,
+    "unframed_finite_cardinality": 8,
+}
+```
+
+- `dimension` is the dimension of the affine solution space over GF(2) after
+  gauge quotienting.
+- `framed_finite_cardinality` is the number of points before residual
+  identifications.
+- `unframed_finite_cardinality` is the number remaining after residual
+  symmetries act within that stratum.
+
+For a U1 stratum:
+
+```python
+{
+    "kind": "compact-u1-torsor",
+    "free_rank": 3,
+    "torsion_orders": (),
+}
+```
+
+- `free_rank` counts independent continuous U1 parameters.
+- `torsion_orders` gives the cyclic finite factors.
+- A rank-zero stratum also has `finite_class_count`, the product of its torsion
+  orders.
+
+### `details`
+
+When requested, details have two keys:
+
+```python
+{
+    "strata": (...),
+    "quotient": {...},
+}
+```
+
+`strata` contains one physical presentation per nonempty branch. `quotient`
+contains:
+
+- `framed_finite_cardinality`;
+- `unframed_finite_cardinality`; and
+- `continuous_family_count`.
+
+For a continuous result the two finite aggregate cardinalities are `None`.
+
+Each finite affine Z2 detail contains:
+
+- `kind`;
+- `basepoint`, one binary solution;
+- `quotient_basis`, the independent binary solution directions;
+- `dimension`;
+- `framed_finite_cardinality`; and
+- `unframed_finite_cardinality`.
+
+Each compact-U1 detail contains:
+
+- `kind`;
+- `rho_bits`, the coefficient-character sector;
+- `basepoint_phases`, exact phases written as reduced strings;
+- `free_rank`;
+- `torsion_orders`;
+- `formal_parameters`, named `phi0`, `phi1`, ...; and
+- `finite_class_count` when `free_rank == 0`.
+
+## Examples
+
+### Finite Z2 classification
 
 ```python
 import mathpsg
 
 result = mathpsg.classify(1, ["a"], igg="Z2")
 
-print(result.class_count)           # 8
-print(result.continuous)            # False
-print(result.certification_status)  # host-native
-print(result.details)               # None
-
-first = result.summaries[0]
-print(first["kind"])                # finite-affine-z2
-print(first["skeleton_ids"])        # local-branch identifiers
-print(first["stratum_id"])          # identifier for this solution family
+print(result.class_count)       # 8
+print(result.continuous)        # False
+print(len(result.summaries))    # 1
+print(result.summaries[0]["kind"])       # finite-affine-z2
+print(result.summaries[0]["dimension"])  # 3
+print(result.details)           # None
 ```
 
-Here, `len(result.summaries) == 1` means the calculation has one solution
-stratum. It does **not** mean there is only one PSG class: that stratum contains
-all eight classes reported by `class_count`.
-
-Each summary contains only:
-
-- `kind`: `"finite-affine-z2"` or `"compact-u1-torsor"`;
-- `skeleton_ids`: one selected local PSG-branch identifier per occupied orbit;
-- `stratum_id`: the identifier for the complete joint solution family.
+One summary here contains all eight unframed classes.
 
 ### Time-reversal Z2 details
 
@@ -180,188 +218,82 @@ result = mathpsg.classify(
 )
 
 print(result.class_count)  # 128
-
-layer = result.details["layer"]
-strata = layer["framed_strata"]
-
-print(layer["status"])                         # complete
-print(len(strata))                              # 2
-print([item["dimension"] for item in strata])   # [6, 6]
-print([item["unframed_finite_cardinality"]
-       for item in strata])                     # [64, 64]
-print(layer["unframed_quotient"]
-      ["unframed_finite_cardinality"])          # 128
+print(len(result.details["strata"]))  # 2
+print([s["dimension"] for s in result.details["strata"]])
+# [6, 6]
+print(result.details["quotient"]["unframed_finite_cardinality"])
+# 128
 ```
 
-Each `finite-affine-z2` stratum describes an affine space over `GF(2)`:
+The two strata are inequivalent local time-reversal branches; each has 64
+unframed points.
 
-- `basepoint` is one solution in raw binary coordinates;
-- `quotient_basis` lists the independent binary directions;
-- `dimension` is the number of those directions;
-- `framed_finite_cardinality` is therefore `2**dimension`;
-- `unframed_finite_cardinality` is the number remaining after residual
-  equivalences are applied.
+### Continuous U1 classification
 
-The two strata in this example correspond to two inequivalent local
-time-reversal branches. Their opaque `skeleton_ids` distinguish those branches;
-the summary ordering should not be used as a physical label.
+```python
+result = mathpsg.classify(1, ["a"], igg="U1", details=True)
 
-### U1 example
+print(result.class_count)  # None
+print(result.continuous)   # True
+
+continuous_strata = [
+    stratum
+    for stratum in result.details["strata"]
+    if stratum["free_rank"] > 0
+]
+print(continuous_strata[0]["free_rank"])         # 3
+print(continuous_strata[0]["formal_parameters"]) # ("phi0", "phi1", "phi2")
+```
+
+Rank-zero U1 strata may coexist with a continuous stratum. Once any continuous
+family is present, the aggregate `class_count` is `None`.
+
+### Multiple occupied Wyckoff positions
+
+```python
+result = mathpsg.classify(2, ["a", "b"], igg="Z2")
+print(result.class_count)  # 128
+```
+
+This is one coupled classification with both occupied orbits.
+
+### Explicit GAP and setting
 
 ```python
 result = mathpsg.classify(
-    99,
-    ["a", "b"],
-    igg="U1",
-    details=True,
-)
-
-if result.continuous:
-    assert result.class_count is None
-    presentations = result.details["layer"]["unframed_quotient"][
-        "continuous_orbit_presentations"
-    ]
-    print(presentations)
-else:
-    assert isinstance(result.class_count, int)
-    print(result.class_count)
-```
-
-U1 strata have `kind == "compact-u1-torsor"`. Important detailed fields are
-`free_rank`, `torsion_orders`, `basepoint_phases`, and `formal_parameters`.
-A positive `free_rank` produces a continuous family. A rank-zero U1 stratum is
-finite and includes `finite_class_count`.
-
-### Structure of `details`
-
-When requested, `result.details` contains:
-
-| Key | Meaning |
-|---|---|
-| `schema_version` | Classification-record schema version. |
-| `request_digest` | Content identifier for the canonical normalized request. |
-| `catalogue_manifest_digest` | Identifier for the exact catalogue material used. |
-| `layer` | Joint classification layer containing strata, obstructions, failures, and the final quotient. |
-| `point_routes` | Parameter-specialization routes; empty for ordinary family requests. |
-| `routing_verification_digest` | Routing certificate identifier, or `None` when no point routing was required. |
-
-The nested `layer` contains:
-
-| Key | Meaning |
-|---|---|
-| `status` | `"complete"` for every result returned by the public API. Incomplete calculations raise `ClassificationError` instead of returning a partial result. |
-| `failures` | Structured backend failures; empty in a complete returned result. |
-| `framed_strata` | Complete Z2 or U1 solution-family records. |
-| `obstructed_branches` | Local branches proved not to extend to global solutions. |
-| `unframed_quotient` | Aggregate finite counts or continuous presentations after residual identifications. |
-| `layer_id` | Content identifier for the complete joint layer. |
-
-Within `unframed_quotient`, `framed_finite_cardinality` counts points before
-the final residual identifications and `unframed_finite_cardinality` is the
-physical PSG class count returned as `result.class_count`. For a continuous U1
-quotient, both finite cardinalities are `None` and
-`continuous_orbit_presentations` records the continuous components.
-
-### Explicit execution controls
-
-All options after `wps` are keyword-only:
-
-```python
-result = mathpsg.classify(
-    70,
-    ["a", "b"],
+    3,
+    ["a"],
+    setting="b",
     igg="Z2",
-    time_reversal=True,
-    setting="2",
-    details=False,
     gap="/absolute/path/to/gap",
-    cache="/absolute/path/to/cache",
-    timeout=300,
+    timeout=900,
 )
 ```
 
-## Command-line calculator
+## Errors
 
-```bash
-mathpsg classify --it-number 1 --wps a --igg Z2
-mathpsg classify --it-number 99 --wps a b --igg U1 --details
-mathpsg classify --it-number 70 --wps a b --igg Z2 \
-  --time-reversal --setting 2
-```
+`ClassificationError` reports calculation failures such as:
 
-Optional execution controls are `--gap PATH`, `--cache PATH`, and
-`--timeout SECONDS`. Output is canonical JSON containing the normalized
-request, class count/continuity, summaries, optional details, and certification
-status. It does not contain a runtime block.
+- GAP cannot be found or started;
+- GAP times out or exits unsuccessfully;
+- GAP output is not valid JSON;
+- required GAP computation data are missing; or
+- the requested Wyckoff labels do not select a unique setting.
 
-## Other commands
-
-Inspect the active Python and GAP runtime:
-
-```bash
-mathpsg doctor
-```
-
-Generate or load one space-group catalogue:
-
-```bash
-mathpsg catalogue --it-number 227
-```
-
-Generate the grouped affine/PCP evidence directly:
-
-```bash
-mathpsg evidence --it-number 1 --mode spatial
-mathpsg evidence --it-number 1 --mode onsite-time
-```
-
-Inspect the installed capability boundary:
-
-```bash
-mathpsg capabilities
-```
-
-## Cache and reproducibility
-
-The default cache is the platform user cache directory. Override it with the
-`MATHPSG_CACHE` environment variable, the Python `cache=` argument, or the CLI
-`--cache` option.
-
-Cache keys bind the complete ordered request, catalogue records, local GAP
-executable bytes and observed versions, source inventory, algorithm versions,
-and parent artifacts. Repeated Wyckoff positions may share only their common
-GAP inclusion calculation; they remain separate instances in the joint layer.
-Every cache hit is parsed and mathematically replayed. Corrupt or mismatched
-evidence fails closed.
-
-Results are labelled `host-native`. The calculation and caches internally bind
-the local Python/GAP environment, but runtime provenance is not retained in the
-returned classification object. Host-native results do not claim release
-signing or release-certified authority.
+These are operational errors, not partial classification results.
 
 ## Development
 
-Run the suite from the repository root:
+Run the test suite from the repository root:
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 \
-  python3 -W error::ResourceWarning -m unittest discover -s tests -v
+python3 -W error::ResourceWarning -m unittest discover -s tests -v
 ```
 
-See [VERIFICATION.md](VERIFICATION.md) for the recorded runtime and completed
-real-GAP regressions.
-
-## Repository layout
-
-```text
-mathpsg/                 Python package and exact algebra
-mathpsg/_assets/         Installed GAP scripts and crystallographic bindings
-gap/catalogue/           GAP crystallographic catalogue exporter
-gap/classifier/          GAP affine/PCP and low-degree resolution backend
-resources/               Display crosswalk and action bindings
-tests/                   Unit and real local-GAP integration tests
-docs/                    Architecture and host-native classifier design
-```
+`EXTRACTED_SOURCES.json`, `VERIFICATION.md`, `docs/`, and the root `AGENTS.md`
+are optional local development records. They are not required by installed
+users and are not read by `classify`.
 
 ## License
 

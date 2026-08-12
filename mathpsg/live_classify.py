@@ -1,314 +1,257 @@
-"""Public request construction for host-native joint PSG classification."""
+"""The public, cache-free PSG classification function."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
-import json
-import os
 from pathlib import Path
-import re
-import sys
-from typing import Mapping
+from types import MappingProxyType
 
-from .catalogue_loader import CatalogueIndex
-from .classification_schema import (
-    FrozenJSONArray,
-    FrozenJSONObject,
-    canonical_classification_json,
-    loads_classification_record,
+from .compute import (
+    PhysicalClassification,
+    U1PhysicalStratum,
+    Z2PhysicalStratum,
+    compute_classification,
 )
-from .classification_schema import (
-    SCHEMA_VERSION,
-    ClassificationRequest,
-    OrbitInstance,
-)
-from .certified_classifier import classify_request
-from .classifier_cache import ClassifierCache
-from .host_classifier_backend import HostNativeClassifierBackend
 from .live_catalogue import CatalogueError, LiveCatalogue
-from .local_gap import probe_gap
-from .query import make_diagnostic_verified_catalogue
+from .local_gap import GapRuntimeError, probe_gap
 
 
-_WP_RE = re.compile(r"(?:[1-9][0-9]*)?[A-Za-z]\Z")
-_SETTING_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 _RUNTIME_ROOT = Path(__file__).resolve().parent / "_assets"
 
 
 class ClassificationError(RuntimeError):
-    """A complete host-native PSG classification could not be produced."""
+    """The requested physical PSG classification could not be completed."""
 
 
 @dataclass(frozen=True, slots=True)
-class HostNativeClassificationResult:
-    """Capability-free immutable result of one joint host-native calculation."""
+class ClassificationResult:
+    """Immutable physical result returned by :func:`classify`."""
 
-    request: FrozenJSONObject
+    request: Mapping[str, object]
     class_count: int | None
     continuous: bool
-    summaries: tuple[FrozenJSONObject, ...]
-    details: FrozenJSONObject | None
-    certification_status: str
+    summaries: tuple[Mapping[str, object], ...]
+    details: Mapping[str, object] | None
 
 
-def _plain(value):
-    if isinstance(value, FrozenJSONObject):
-        return {key: _plain(item) for key, item in value.items}
-    if isinstance(value, FrozenJSONArray):
-        return [_plain(item) for item in value.items]
+@dataclass(frozen=True, slots=True)
+class _Request:
+    igg: str
+    time_reversal: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _ResolvedOrbit:
+    record: object
+
+
+def _freeze(value: object) -> object:
     if isinstance(value, Mapping):
-        return {key: _plain(item) for key, item in value.items()}
-    if isinstance(value, tuple):
-        return [_plain(item) for item in value]
+        return MappingProxyType(
+            {str(key): _freeze(item) for key, item in value.items()}
+        )
+    if isinstance(value, (tuple, list)):
+        return tuple(_freeze(item) for item in value)
     return value
 
 
-def classification_result_mapping(
-    value: HostNativeClassificationResult,
-) -> dict[str, object]:
-    """Return the canonical capability-free JSON shape for one public result."""
-
-    if type(value) is not HostNativeClassificationResult:
-        raise TypeError("expected HostNativeClassificationResult")
-    return {
-        "certification_status": value.certification_status,
-        "class_count": value.class_count,
-        "continuous": value.continuous,
-        "details": None if value.details is None else _plain(value.details),
-        "request": _plain(value.request),
-        "summaries": [_plain(item) for item in value.summaries],
-    }
-
-
-def _default_cache_root() -> Path:
-    override = os.environ.get("MATHPSG_CACHE")
-    if override:
-        return Path(override).expanduser()
-    if sys.platform == "darwin":
-        return Path.home() / "Library" / "Caches" / "mathpsg-standalone"
-    xdg = os.environ.get("XDG_CACHE_HOME")
-    return (
-        Path(xdg).expanduser() / "mathpsg-standalone"
-        if xdg
-        else Path.home() / ".cache" / "mathpsg-standalone"
-    )
-
-
-def _frozen_mapping(value: Mapping[str, object]) -> FrozenJSONObject:
-    return FrozenJSONObject(tuple(value.items()))
-
-
-def _public_result(value, request, *, details: bool):
-    if value.record.layer.status != "complete" or value.unframed_quotient is None:
-        failures = value.record.layer.failures
-        reason = (
-            "; ".join(f"{item.stage}: {item.message}" for item in failures)
-            or "classification did not produce a complete quotient"
-        )
-        raise ClassificationError(reason)
-    quotient = value.unframed_quotient
-    continuous = bool(quotient.continuous_orbit_presentations)
-    count = quotient.unframed_finite_cardinality
-    if continuous != (count is None):
-        raise ClassificationError("finite/continuous quotient claims are inconsistent")
-    request_mapping = json.loads(canonical_classification_json(request))
-    summaries = tuple(
-        _frozen_mapping(
-            {
-                "kind": stratum["kind"],
-                "skeleton_ids": list(stratum["skeleton_ids"]),
-                "stratum_id": stratum["stratum_id"],
-            }
-        )
-        for stratum in value.record.layer.framed_strata
-    )
-    detail_value = None
-    if details:
-        replayed = loads_classification_record(
-            canonical_classification_json(value.record)
-        )
-        detail_value = _frozen_mapping(
-            json.loads(canonical_classification_json(replayed))
-        )
-    return HostNativeClassificationResult(
-        request=_frozen_mapping(request_mapping),
-        class_count=count,
-        continuous=continuous,
-        summaries=summaries,
-        details=detail_value,
-        certification_status="host-native",
-    )
-
-
-def _occupied_wps(wps: str | Sequence[str]) -> tuple[str, ...]:
-    if type(wps) is str:
+def _labels(wps: object) -> tuple[str, ...]:
+    if isinstance(wps, str):
         values = (wps,)
-    elif isinstance(wps, Sequence) and not isinstance(wps, (str, bytes)):
-        values = tuple(wps)
     else:
-        raise TypeError("wps must be a Wyckoff label or a finite sequence of labels")
-    if not values:
-        raise ValueError("wps must contain at least one occupied Wyckoff position")
-    if any(type(value) is not str for value in values):
-        raise TypeError("each occupied Wyckoff position must be a string")
-    if any(_WP_RE.fullmatch(value) is None for value in values):
-        raise ValueError("each occupied Wyckoff position must be a conventional label")
-    return values
+        try:
+            values = tuple(wps)  # type: ignore[arg-type]
+        except TypeError:
+            values = (wps,)
+    labels = tuple(str(value).strip().lower() for value in values)
+    if not labels or any(not label for label in labels):
+        raise ClassificationError("at least one Wyckoff position is required")
+    return labels
 
 
-def resolve_occupancy_request(
-    it_number: int,
-    wps: str | Sequence[str],
+def _resolve(
+    it_number: object,
+    labels: tuple[str, ...],
     *,
-    igg: str,
-    time_reversal: bool,
-    setting: str | None,
+    setting: object | None,
     catalogue: LiveCatalogue,
-) -> ClassificationRequest:
-    """Resolve one simultaneous occupied-Wyckoff configuration.
-
-    Each item in ``wps`` becomes one ordered orbit instance. Repeated labels
-    intentionally remain distinct instances in the joint request.
-    """
-
-    if type(it_number) is not int:
-        raise TypeError("IT number must be an integer")
-    if not 1 <= it_number <= 230:
-        raise ValueError("IT number must be in 1..230")
-    labels = _occupied_wps(wps)
-    if type(igg) is not str:
-        raise TypeError("igg must be a string")
-    if igg not in ("Z2", "U1"):
-        raise ValueError("igg must be Z2 or U1")
-    if type(time_reversal) is not bool:
-        raise TypeError("time_reversal must be a boolean")
-    if setting is not None:
-        if type(setting) is not str:
-            raise TypeError("setting must be a string or None")
-        if _SETTING_RE.fullmatch(setting) is None:
-            raise ValueError("setting has invalid syntax")
-    if type(catalogue) is not LiveCatalogue:
-        raise TypeError("catalogue must be a LiveCatalogue")
-
-    records = catalogue.records(it_number)
+) -> tuple[int, str, tuple[_ResolvedOrbit, ...]]:
+    try:
+        number = int(it_number)  # lightweight normalization, not an exact-type gate
+    except (TypeError, ValueError) as error:
+        raise ClassificationError("space-group number is not an integer") from error
+    requested_setting = None if setting is None else str(setting).strip().lower()
+    records = catalogue.records(number)
     candidate_settings = (
-        (setting,)
-        if setting is not None
-        else tuple(sorted({str(record.space_group["setting"]) for record in records}))
+        (requested_setting,)
+        if requested_setting is not None
+        else tuple(
+            sorted({str(record.space_group["setting"]).lower() for record in records})
+        )
     )
     matches: list[tuple[str, tuple[object, ...]]] = []
-    for candidate_setting in candidate_settings:
-        resolved = []
+    for candidate in candidate_settings:
+        resolved: list[object] = []
         for label in labels:
             try:
-                resolved.append(catalogue.resolve(it_number, label, candidate_setting))
+                resolved.append(catalogue.resolve(number, label, candidate))
             except CatalogueError:
                 break
         if len(resolved) == len(labels):
-            matches.append((candidate_setting, tuple(resolved)))
-
+            matches.append((candidate, tuple(resolved)))
     if not matches:
-        raise CatalogueError(
-            f"occupied Wyckoff configuration has no match in space group {it_number}"
+        raise ClassificationError(
+            f"the occupied Wyckoff positions do not match space group {number}"
         )
     if len(matches) != 1:
-        settings = ", ".join(value[0] for value in matches)
-        raise CatalogueError(
-            f"setting is ambiguous for space group {it_number}: {settings}"
-        )
-
+        choices = ", ".join(item[0] for item in matches)
+        raise ClassificationError(f"space-group setting is ambiguous: {choices}")
     selected_setting, selected_records = matches[0]
-    return ClassificationRequest(
-        SCHEMA_VERSION,
-        it_number,
+    return (
+        number,
         selected_setting,
-        igg,
-        time_reversal,
         tuple(
-            OrbitInstance(
-                f"atom-{index:04d}",
-                record.wyckoff_id,
-                "family",
-            )
-            for index, record in enumerate(selected_records)
+            _ResolvedOrbit(record)
+            for record in selected_records
         ),
     )
 
 
+def _z2_summary(stratum: Z2PhysicalStratum) -> dict[str, object]:
+    count = stratum.framed_class_count
+    return {
+        "kind": "finite-affine-z2",
+        "dimension": stratum.quotient_dimension,
+        "framed_finite_cardinality": count,
+        "unframed_finite_cardinality": stratum.unframed_class_count,
+    }
+
+
+def _u1_summary(stratum: U1PhysicalStratum) -> dict[str, object]:
+    group = stratum.solution.group
+    result: dict[str, object] = {
+        "kind": "compact-u1-torsor",
+        "free_rank": group.free_rank,
+        "torsion_orders": tuple(group.torsion_orders),
+    }
+    if group.free_rank == 0:
+        result["finite_class_count"] = stratum.framed_class_count
+    return result
+
+
+def _details(
+    value: PhysicalClassification,
+    summaries: tuple[dict[str, object], ...],
+) -> dict[str, object]:
+    strata: list[dict[str, object]] = []
+    for stratum, summary in zip(value.framed_strata, summaries):
+        if isinstance(stratum, Z2PhysicalStratum):
+            strata.append(
+                {
+                    **summary,
+                    "basepoint": tuple(stratum.basepoint),
+                    "quotient_basis": tuple(
+                        tuple(vector) for vector in stratum.quotient_basis
+                    ),
+                }
+            )
+        else:
+            strata.append(
+                {
+                    **summary,
+                    "rho_bits": tuple(stratum.rho_bits),
+                    "basepoint_phases": tuple(
+                        str(phase) for phase in stratum.solution.basepoint
+                    ),
+                    "formal_parameters": tuple(
+                        f"phi{index}"
+                        for index in range(stratum.solution.group.free_rank)
+                    ),
+                }
+            )
+    quotient = value.quotient
+    return {
+        "strata": tuple(strata),
+        "quotient": {
+            "framed_finite_cardinality": quotient.framed_class_count,
+            "unframed_finite_cardinality": quotient.class_count,
+            "continuous_family_count": sum(
+                isinstance(stratum, U1PhysicalStratum) and stratum.continuous
+                for stratum in value.framed_strata
+            ),
+        },
+    }
+
+
 def classify(
-    it_number: int,
-    wps: str | Sequence[str],
+    it_number,
+    wps,
     *,
-    igg: str = "Z2",
-    time_reversal: bool = False,
-    setting: str | None = None,
-    details: bool = False,
-    gap: str = "gap",
-    cache: str | os.PathLike[str] | None = None,
-    timeout: int = 300,
-) -> HostNativeClassificationResult:
-    """Calculate one joint PSG classification with the exact local GAP runtime."""
+    igg="Z2",
+    time_reversal=False,
+    setting=None,
+    details=False,
+    gap="gap",
+    timeout=300,
+) -> ClassificationResult:
+    """Compute one joint Z2 or U1 PSG classification from fresh GAP output."""
 
-    if type(it_number) is not int:
-        raise TypeError("IT number must be an integer")
-    if not 1 <= it_number <= 230:
-        raise ValueError("IT number must be in 1..230")
-    _occupied_wps(wps)
-    if type(igg) is not str:
-        raise TypeError("igg must be a string")
-    if igg not in ("Z2", "U1"):
-        raise ValueError("igg must be Z2 or U1")
-    if type(time_reversal) is not bool:
-        raise TypeError("time_reversal must be a boolean")
-    if setting is not None:
-        if type(setting) is not str:
-            raise TypeError("setting must be a string or None")
-        if _SETTING_RE.fullmatch(setting) is None:
-            raise ValueError("setting has invalid syntax")
-    if type(details) is not bool:
-        raise TypeError("details must be a boolean")
-    if type(gap) is not str or not gap:
-        raise TypeError("gap must be a nonempty executable name or path")
-    if type(timeout) is not int or timeout <= 0:
-        raise ValueError("timeout must be a positive integer")
-    cache_root = _default_cache_root() if cache is None else Path(cache).expanduser()
-    runtime = probe_gap(gap, timeout_seconds=min(timeout, 30))
-    catalogue = LiveCatalogue(
-        runtime,
-        cache_root=cache_root / "catalogue",
-        repository_root=_RUNTIME_ROOT,
-        timeout_seconds=min(timeout, 120),
+    labels = _labels(wps)
+    normalized_igg = str(igg).strip().upper()
+    if normalized_igg == "Z2":
+        normalized_igg = "Z2"
+    elif normalized_igg == "U1":
+        normalized_igg = "U1"
+    else:
+        raise ClassificationError("igg must be Z2 or U1")
+    try:
+        timeout_seconds = int(timeout)
+        if timeout_seconds <= 0:
+            raise ValueError
+        runtime = probe_gap(str(gap), timeout_seconds=min(timeout_seconds, 30))
+        catalogue = LiveCatalogue(
+            runtime,
+            repository_root=_RUNTIME_ROOT,
+            timeout_seconds=min(timeout_seconds, 120),
+        )
+        number, selected_setting, resolved = _resolve(
+            it_number, labels, setting=setting, catalogue=catalogue
+        )
+        request = _Request(normalized_igg, bool(time_reversal))
+        physical = compute_classification(
+            request,
+            resolved,
+            runtime=runtime,
+            repository_root=_RUNTIME_ROOT,
+            timeout_seconds=timeout_seconds,
+        )
+    except ClassificationError:
+        raise
+    except (CatalogueError, GapRuntimeError, OSError, RuntimeError, TypeError, ValueError) as error:
+        raise ClassificationError(str(error)) from error
+
+    summaries = tuple(
+        _z2_summary(stratum)
+        if isinstance(stratum, Z2PhysicalStratum)
+        else _u1_summary(stratum)
+        for stratum in physical.framed_strata
     )
-    request = resolve_occupancy_request(
-        it_number,
-        wps,
-        igg=igg,
-        time_reversal=time_reversal,
-        setting=setting,
-        catalogue=catalogue,
+    request_mapping = {
+        "space_group": number,
+        "setting": selected_setting,
+        "igg": normalized_igg,
+        "time_reversal": bool(time_reversal),
+        "wps": labels,
+    }
+    detail_value = _details(physical, summaries) if bool(details) else None
+    return ClassificationResult(
+        request=_freeze(request_mapping),  # type: ignore[arg-type]
+        class_count=physical.class_count,
+        continuous=physical.continuous,
+        summaries=tuple(_freeze(summary) for summary in summaries),  # type: ignore[arg-type]
+        details=None if detail_value is None else _freeze(detail_value),  # type: ignore[arg-type]
     )
-    backend = HostNativeClassifierBackend(
-        runtime=runtime,
-        repository_root=_RUNTIME_ROOT,
-    )
-    verified = make_diagnostic_verified_catalogue(
-        CatalogueIndex(catalogue.records(it_number)),
-        backend=backend,
-    )
-    value = classify_request(
-        request,
-        verified,
-        cache=ClassifierCache(cache_root / "classifier"),
-        timeout_seconds=timeout,
-    )
-    return _public_result(value, request, details=details)
 
 
-__all__ = [
-    "ClassificationError",
-    "HostNativeClassificationResult",
-    "classify",
-    "classification_result_mapping",
-    "resolve_occupancy_request",
-]
+__all__ = ["ClassificationError", "ClassificationResult", "classify"]
