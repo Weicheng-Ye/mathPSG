@@ -9,7 +9,6 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_ROOT = Path("/Users/victor/Downloads/mathPSG/mathPSG")
 OUTPUT = ROOT / "EXTRACTED_SOURCES.json"
 EXCLUDED_PARTS = {".git", "__pycache__"}
 EXCLUDED_FILES = {"EXTRACTED_SOURCES.json"}
@@ -30,15 +29,22 @@ def inventory_files() -> tuple[Path, ...]:
 
 
 def main() -> int:
+    try:
+        prior_files = json.loads(OUTPUT.read_text(encoding="utf-8"))["files"]
+    except (OSError, KeyError, TypeError, json.JSONDecodeError):
+        prior_files = {}
     files: dict[str, dict[str, str | None]] = {}
     for path in inventory_files():
         relative = path.relative_to(ROOT).as_posix()
         standalone_data = path.read_bytes()
-        source = SOURCE_ROOT / relative
-        source_data = source.read_bytes() if source.is_file() else None
+        prior = prior_files.get(relative, {})
+        source_path = prior.get("source_path") if isinstance(prior, dict) else None
+        source_sha256 = (
+            prior.get("source_sha256") if isinstance(prior, dict) else None
+        )
         files[relative] = {
-            "source_path": relative if source_data is not None else None,
-            "source_sha256": digest(source_data) if source_data is not None else None,
+            "source_path": source_path,
+            "source_sha256": source_sha256,
             "standalone_sha256": digest(standalone_data),
         }
     document = {

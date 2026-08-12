@@ -26,50 +26,6 @@ MathPSGClassifierRequiredLock :=
 MathPSGClassifierRequiredOCI :=
     "sha256:726b772a1aae0cfa22fd3cdba89bb424c65eed01744a265a0f55078649a2b95d";
 
-MathPSGClassifierRuntimeManifestPath :=
-    "/opt/mathpsg/classifier-gap/runtime-provenance.json";
-MathPSGClassifierLockPath := "/opt/mathpsg/classifier-gap.lock.json";
-MathPSGClassifierRuntimeManifest := fail;
-MathPSGClassifierRuntimeManifestBytes := fail;
-MathPSGClassifierLockedRuntime := false;
-if IsExistingFile(MathPSGClassifierRuntimeManifestPath)
-   and IsExistingFile(MathPSGClassifierLockPath)
-   and MathPSGClassifierHexSHA256(StringFile(MathPSGClassifierLockPath))
-       = MathPSGClassifierRequiredLock then
-    MathPSGClassifierRuntimeManifestBytes :=
-        StringFile(MathPSGClassifierRuntimeManifestPath);
-    MathPSGClassifierRuntimeManifestResult := CALL_WITH_CATCH(
-        JsonStringToGap, [MathPSGClassifierRuntimeManifestBytes]
-    );
-    if MathPSGClassifierRuntimeManifestResult[1] = true then
-        MathPSGClassifierRuntimeManifest :=
-            MathPSGClassifierRuntimeManifestResult[2];
-        MathPSGClassifierLockedRuntime :=
-            IsRecord(MathPSGClassifierRuntimeManifest)
-            and IsBound(MathPSGClassifierRuntimeManifest.schema_version)
-            and MathPSGClassifierRuntimeManifest.schema_version = 1
-            and IsBound(MathPSGClassifierRuntimeManifest.lock_digest)
-            and MathPSGClassifierRuntimeManifest.lock_digest
-                = Concatenation("sha256:", MathPSGClassifierRequiredLock)
-            and IsBound(MathPSGClassifierRuntimeManifest.base_image)
-            and IsBound(MathPSGClassifierRuntimeManifest.base_image.index_digest)
-            and MathPSGClassifierRuntimeManifest.base_image.index_digest
-                = MathPSGClassifierRequiredOCI
-            and IsBound(MathPSGClassifierRuntimeManifest.external_runtime)
-            and IsBound(
-                MathPSGClassifierRuntimeManifest.external_runtime.nq_executable
-            )
-            and MathPSGClassifierRuntimeManifest.external_runtime
-                .nq_executable.provider = "pinned_oci_image"
-            and IsBound(MathPSGClassifierRuntimeManifest.external_runtime.polymake)
-            and MathPSGClassifierRuntimeManifest.external_runtime.polymake.provider
-                = "excluded_by_authenticated_api_closure";
-    fi;
-fi;
-MathPSGClassifierDiagnosticRuntime :=
-    IsBound(GAPInfo.SystemEnvironment.MATHPSG_CLASSIFIER_DIAGNOSTIC)
-    and GAPInfo.SystemEnvironment.MATHPSG_CLASSIFIER_DIAGNOSTIC = "1";
-
 MathPSGClassifierCrystLoad := LoadPackage(
     "cryst", "=4.1.30", false : OnlyNeeded
 );
@@ -84,13 +40,12 @@ if GAPInfo.Version <> "4.15.1"
    or MathPSGClassifierJsonLoad <> true
    or MathPSGClassifierCrystLoad <> true
    or MathPSGClassifierHAPLoad <> true
-   or MathPSGClassifierHAPcrystLoad <> true
-   or not (MathPSGClassifierLockedRuntime or MathPSGClassifierDiagnosticRuntime) then
+   or MathPSGClassifierHAPcrystLoad <> true then
     MathPSGClassifierWrite(
         MathPSGClassifierResponsePath,
         MathPSGClassifierFailureResponse(
             Concatenation("sha256:", String(ListWithIdenticalEntries(64, '0'))),
-            "backend_failed", "environment", "classifier environment is not locked"
+            "backend_failed", "environment", "required local GAP packages are unavailable"
         )
     );
     QUIT_GAP(2);
@@ -129,13 +84,6 @@ MathPSGClassifierEnvironment := function()
         release_certified := false,
         runtime_provenance_digest := fail
     );
-    if MathPSGClassifierLockedRuntime then
-        core.execution_mode := "locked_image";
-        core.runtime_provenance_digest := Concatenation(
-            "sha256:",
-            MathPSGClassifierHexSHA256(MathPSGClassifierRuntimeManifestBytes)
-        );
-    fi;
     result := ShallowCopy(core);
     result.environment_id := MathPSGClassifierDigest("classifier-environment-v1", core);
     return result;

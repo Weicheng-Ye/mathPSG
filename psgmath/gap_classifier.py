@@ -32,7 +32,6 @@ _RATIONAL_RE = re.compile(r"q\((-?(?:0|[1-9][0-9]*)),([1-9][0-9]*)\)\Z")
 _IDENTIFIER_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:+-]*\Z")
 _PROTOCOL_VERSION = 1
 _CLASSIFIER_SOURCE_PREFIX = "gap/classifier/lib/"
-_CLASSIFIER_LOCK_ASSET = "environments/classifier-gap.lock.json"
 
 
 Vector = tuple[Fraction, ...]
@@ -1535,10 +1534,11 @@ def loads_gap_classifier_response(data: bytes) -> GAPClassifierResponse:
 
 
 def default_gap_classifier_command() -> tuple[str, ...]:
+    exporter = Path(__file__).resolve().parents[1] / "gap/classifier/export_problem.g"
     return (
-        "/opt/mathpsg/bin/locked-gap",
+        "gap",
         "-q",
-        "/workspace/gap/classifier/export_problem.g",
+        os.fspath(exporter),
         "--",
     )
 

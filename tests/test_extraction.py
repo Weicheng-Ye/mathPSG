@@ -24,6 +24,24 @@ class ExtractionBoundaryTests(unittest.TestCase):
             self.assertFalse((ROOT / relative).exists(), relative)
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         self.assertNotIn("pyxtal", pyproject.lower())
+        self.assertFalse((ROOT / "docs" / "superpowers").exists())
+
+    def test_standalone_tools_do_not_name_the_source_worktree(self) -> None:
+        forbidden = "/".join(
+            ("", "Users", "victor", "Downloads", "mathPSG", "mathPSG")
+        )
+        for path in (ROOT / "tools").rglob("*.py"):
+            self.assertNotIn(forbidden, path.read_text(encoding="utf-8"), path.name)
+
+    def test_public_gap_launcher_is_host_native(self) -> None:
+        exporter = (ROOT / "gap/classifier/export_problem.g").read_text(
+            encoding="utf-8"
+        )
+        classifier = (ROOT / "psgmath/gap_classifier.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("/opt/mathpsg", exporter)
+        self.assertNotIn("/opt/mathpsg", classifier)
 
     def test_source_inventory_replays(self) -> None:
         inventory = json.loads(
