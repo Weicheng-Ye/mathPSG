@@ -11,12 +11,12 @@ _CAPABILITIES = MappingProxyType(
         "generic_z2_solver_source_present": True,
         "generic_u1_solver_source_present": True,
         "ordered_multi_orbit_algorithms_present": True,
-        "live_evidence_bridge_present": False,
+        "live_evidence_bridge_present": True,
         "bundled_stabilizer_skeletons_present": False,
-        "public_classify_api_present": False,
+        "public_classify_api_present": True,
         "reason": (
-            "the source snapshot has no reviewed host-native bridge from live "
-            "GAP evidence to final Z2/U1 classifier inputs"
+            "the public calculator uses replay-verified local GAP evidence and "
+            "reports host-native rather than release-certified authority"
         ),
     }
 )

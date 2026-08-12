@@ -24,6 +24,87 @@ from psgmath.query import make_diagnostic_verified_catalogue
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class PublicClassifyTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.runtime = probe_gap()
+        cls.temporary = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.temporary.cleanup)
+        cls.root = Path(cls.temporary.name).resolve()
+
+    def test_public_classify_is_exported_immutable_and_cache_replayable(self) -> None:
+        from psgmath import classify
+
+        first = classify(
+            1, ["a"], igg="Z2", gap=self.runtime.executable,
+            cache=self.root, details=False,
+        )
+        second = classify(
+            1, ["a"], igg="Z2", gap=self.runtime.executable,
+            cache=self.root, details=False,
+        )
+
+        self.assertEqual(first, second)
+        self.assertIsNot(first, second)
+        self.assertIsInstance(first.class_count, int)
+        self.assertGreater(first.class_count, 0)
+        self.assertFalse(first.continuous)
+        self.assertEqual(first.certification_status, "host-native")
+        self.assertFalse(hasattr(first, "backend"))
+        self.assertFalse(hasattr(first, "cache"))
+        self.assertIsNone(first.details)
+        with self.assertRaises((AttributeError, TypeError)):
+            first.class_count = 0
+
+    def test_public_invalid_request_does_not_probe_gap(self) -> None:
+        from psgmath import classify
+
+        invalid = (
+            ((0, ["a"]), {}),
+            ((1, []), {}),
+            ((1, [""]), {}),
+            ((1, ["a"]), {"igg": "SU2"}),
+            ((1, ["a"]), {"time_reversal": 1}),
+            ((1, ["a"]), {"setting": " 1"}),
+        )
+        with patch("psgmath.live_classify.probe_gap") as probe:
+            for arguments, keywords in invalid:
+                with self.subTest(arguments=arguments, keywords=keywords):
+                    with self.assertRaises((TypeError, ValueError)):
+                        classify(*arguments, **keywords)
+            probe.assert_not_called()
+
+    def test_public_details_are_fresh_capability_free_values(self) -> None:
+        from psgmath import classify
+
+        first = classify(
+            1, ["a"], igg="Z2", gap=self.runtime.executable,
+            cache=self.root / "details", details=True,
+        )
+        second = classify(
+            1, ["a"], igg="Z2", gap=self.runtime.executable,
+            cache=self.root / "details", details=True,
+        )
+
+        self.assertEqual(first, second)
+        self.assertIsNot(first.details, second.details)
+        self.assertEqual(first.details["layer"]["status"], "complete")
+        self.assertNotIn("backend", first.details)
+        self.assertNotIn("authority", first.details)
+
+    def test_public_u1_reports_continuity_from_exact_quotient(self) -> None:
+        from psgmath import classify
+
+        result = classify(
+            1, ["a"], igg="U1", gap=self.runtime.executable,
+            cache=self.root / "u1", details=True,
+        )
+
+        self.assertEqual(result.class_count is None, result.continuous)
+        quotient = result.details["layer"]["unframed_quotient"]
+        self.assertEqual(result.class_count, quotient["unframed_finite_cardinality"])
+
+
 class LiveJointZ2Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
