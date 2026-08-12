@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import tempfile
 import unittest
 
@@ -40,6 +41,17 @@ class LiveEvidenceTests(unittest.TestCase):
         self.assertEqual(batch.member_ids, tuple(r.wyckoff_id for r in self.records))
         self.assertEqual(batch.response.status, "conversion_only")
         self.assertIsNotNone(batch.affine_certificate)
+        encoded = json.loads(batch.canonical_data)
+        environment = encoded["environment"]
+        self.assertEqual(environment["execution_mode"], "diagnostic_local")
+        self.assertNotIn("oci_image_digest", environment)
+        self.assertNotIn("lock_digest", environment)
+        self.assertTrue(
+            all(
+                set(package) == {"name", "version"}
+                for package in environment["packages"]
+            )
+        )
 
     def test_onsite_time_preserves_the_member_universe(self) -> None:
         batch = build_evidence(

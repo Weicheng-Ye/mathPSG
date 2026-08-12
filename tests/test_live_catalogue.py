@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -41,6 +43,53 @@ class LiveCatalogueTests(unittest.TestCase):
         self.catalogue.records(1)
         with self.assertRaisesRegex(CatalogueError, "Wyckoff label"):
             self.catalogue.resolve(1, "not-a-label")
+
+    def test_cache_cannot_live_in_the_runtime_tree(self) -> None:
+        with self.assertRaisesRegex(CatalogueError, "cache"):
+            LiveCatalogue(
+                self.catalogue.runtime,
+                cache_root=ROOT / "cache",
+                repository_root=ROOT,
+            )
+
+    def test_self_rehashed_cross_group_cache_is_rejected(self) -> None:
+        sg1 = self.catalogue.records(1)
+        self.catalogue.records(70)
+        sg70_directory = next((self.cache / "catalogue").glob("sg70-*"))
+        geometry = b"".join(
+            json.dumps(
+                record.to_mapping(),
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+            + b"\n"
+            for record in sg1
+        )
+        metadata_path = sg70_directory / "record.json"
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        metadata["geometry_sha256"] = "sha256:" + hashlib.sha256(geometry).hexdigest()
+        metadata["record_count"] = len(sg1)
+        (sg70_directory / "wyckoff.ndjson").write_bytes(geometry)
+        metadata_path.write_text(
+            json.dumps(
+                metadata,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        fresh = LiveCatalogue(
+            self.catalogue.runtime,
+            cache_root=self.cache,
+            repository_root=ROOT,
+        )
+        with self.assertRaisesRegex(CatalogueError, "cache|group|coverage"):
+            fresh.records(70)
 
 
 if __name__ == "__main__":

@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
+import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import tempfile
 from types import MappingProxyType
 from typing import Mapping
 
-from .catalogue import catalogue_record_order_key, normalize_gap_export
+from .catalogue import (
+    catalogue_record_order_key,
+    normalize_gap_export,
+    validate_catalogue_record_identity,
+)
 from .catalogue_schema import (
     CatalogueRecord,
     DisplayRecord,
@@ -27,6 +34,8 @@ from .local_gap import GapRuntime, host_provenance, source_inventory_digest
 
 _LABEL_RE = re.compile(r"(?:[1-9][0-9]*)?[A-Za-z]\Z")
 _MAX_CAPTURE_BYTES = 16 * 1024 * 1024
+_MAX_EXPORT_BYTES = 64 * 1024 * 1024
+_MAX_METADATA_BYTES = 1024 * 1024
 
 
 class CatalogueError(RuntimeError):
@@ -64,6 +73,12 @@ class LiveCatalogue:
             raise ValueError("catalogue timeout must be a positive integer")
         root = Path(repository_root).resolve(strict=True)
         cache = Path(cache_root).resolve()
+        if (
+            cache == root
+            or cache.is_relative_to(root)
+            or root.is_relative_to(cache)
+        ):
+            raise CatalogueError("cache must be outside the runtime tree")
         exporter = root / "gap" / "catalogue" / "export_one.g"
         normalizer = root / "gap" / "catalogue" / "lib" / "normalize_affine.g"
         crosswalk = root / "resources" / "display-crosswalk.ndjson"
@@ -119,20 +134,100 @@ class LiveCatalogue:
     def _cache_directory(self, it_number: int) -> Path:
         return self.cache_root / "catalogue" / f"sg{it_number}-{self._cache_key(it_number)}"
 
+    @contextmanager
+    def _cache_lock(self, directory: Path):
+        lock_path = directory.parent / f".{directory.name}.lock"
+        flags = os.O_CREAT | os.O_RDWR
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        try:
+            descriptor = os.open(lock_path, flags, 0o600)
+        except OSError as error:
+            raise CatalogueError("catalogue cache lock is unavailable") from error
+        try:
+            if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+                raise CatalogueError("catalogue cache lock is not a regular file")
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            yield
+        finally:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+
+    def _expected_display_ids(self, it_number: int) -> set[str]:
+        prefix = f"sg{it_number}:"
+        return {
+            wyckoff_id
+            for wyckoff_id in self._display.by_id
+            if wyckoff_id.startswith(prefix)
+        }
+
+    def _validate_record_set(
+        self, records: tuple[CatalogueRecord, ...], it_number: int
+    ) -> tuple[CatalogueRecord, ...]:
+        if not records:
+            raise CatalogueError("catalogue group coverage is empty")
+        if any(
+            record.space_group["international_number"] != it_number
+            for record in records
+        ):
+            raise CatalogueError("catalogue cache contains another space group")
+        ids = tuple(record.wyckoff_id for record in records)
+        if len(set(ids)) != len(ids):
+            raise CatalogueError("catalogue cache contains duplicate rows")
+        if set(ids) != self._expected_display_ids(it_number):
+            raise CatalogueError("catalogue cache crosswalk coverage differs")
+        setting_actions = {
+            (
+                str(record.space_group["setting"]),
+                canonical_json(record.space_group_action),
+            )
+            for record in records
+        }
+        if len(setting_actions) != 1:
+            raise CatalogueError("catalogue cache mixes settings or actions")
+        self._require_display_coverage(records)
+        return records
+
     def _read_cached(self, directory: Path, it_number: int) -> tuple[CatalogueRecord, ...]:
+        if directory.is_symlink() or not directory.is_dir():
+            raise CatalogueError("cached catalogue path is not a regular directory")
         metadata_path = directory / "record.json"
         geometry_path = directory / "wyckoff.ndjson"
         try:
+            if metadata_path.is_symlink() or geometry_path.is_symlink():
+                raise CatalogueError("cached catalogue files cannot be symlinks")
+            if (
+                metadata_path.stat().st_size > _MAX_METADATA_BYTES
+                or geometry_path.stat().st_size > _MAX_EXPORT_BYTES
+            ):
+                raise CatalogueError("cached catalogue exceeds size limits")
             metadata_data = metadata_path.read_bytes()
             geometry_data = geometry_path.read_bytes()
             metadata = strict_json_loads(metadata_data.rstrip(b"\n"))
         except (OSError, TypeError, ValueError, UnicodeError) as error:
             raise CatalogueError("cached catalogue is malformed") from error
+        expected_fields = {
+            "cache_key",
+            "certification_status",
+            "geometry_sha256",
+            "it_number",
+            "provenance",
+            "record_count",
+            "record_type",
+            "schema_version",
+        }
         if (
             not isinstance(metadata, dict)
+            or set(metadata) != expected_fields
             or metadata_data != _canonical_bytes(metadata)
+            or metadata.get("cache_key") != self._cache_key(it_number)
             or metadata.get("certification_status") != "host-native"
             or metadata.get("it_number") != it_number
+            or metadata.get("provenance") != host_provenance(self.runtime)
+            or metadata.get("record_type") != "mathpsg-live-catalogue-cache"
+            or metadata.get("schema_version") != 1
             or metadata.get("geometry_sha256") != _sha256(geometry_data)
             or not geometry_data.endswith(b"\n")
         ):
@@ -142,13 +237,14 @@ class LiveCatalogue:
             value = strict_json_loads(line)
             if not isinstance(value, dict):
                 raise CatalogueError("cached catalogue row is not an object")
-            record = parse_catalogue_record(value)
+            record = validate_catalogue_record_identity(parse_catalogue_record(value))
             if canonical_json(record) != line:
                 raise CatalogueError("cached catalogue row is not canonical")
             records.append(record)
         result = tuple(sorted(records, key=catalogue_record_order_key))
-        self._require_display_coverage(result)
-        return result
+        if tuple(records) != result or metadata.get("record_count") != len(result):
+            raise CatalogueError("cached catalogue order or count differs")
+        return self._validate_record_set(result, it_number)
 
     def _require_display_coverage(
         self, records: tuple[CatalogueRecord, ...]
@@ -167,30 +263,38 @@ class LiveCatalogue:
         with tempfile.TemporaryDirectory(prefix=".mathpsg-catalogue-", dir=parent) as raw:
             temporary = Path(raw)
             export_path = temporary / "gap-export.json"
+            stdout_path = temporary / "stdout.bin"
+            stderr_path = temporary / "stderr.bin"
             try:
-                completed = subprocess.run(
-                    (
-                        self.runtime.executable,
-                        "-q",
-                        os.fspath(self.exporter),
-                        "--",
-                        "--international-number",
-                        str(it_number),
-                        "--json-output",
-                        os.fspath(export_path),
-                    ),
-                    cwd=self.repository_root,
-                    check=False,
-                    capture_output=True,
-                    timeout=self.timeout_seconds,
-                )
+                with stdout_path.open("wb") as stdout_file, stderr_path.open(
+                    "wb"
+                ) as stderr_file:
+                    completed = subprocess.run(
+                        (
+                            self.runtime.executable,
+                            "-q",
+                            os.fspath(self.exporter),
+                            "--",
+                            "--international-number",
+                            str(it_number),
+                            "--json-output",
+                            os.fspath(export_path),
+                        ),
+                        cwd=self.repository_root,
+                        check=False,
+                        stdout=stdout_file,
+                        stderr=stderr_file,
+                        timeout=self.timeout_seconds,
+                    )
             except (OSError, subprocess.TimeoutExpired) as error:
                 raise CatalogueError("local GAP catalogue export failed") from error
             if (
                 completed.returncode != 0
-                or len(completed.stdout) > _MAX_CAPTURE_BYTES
-                or len(completed.stderr) > _MAX_CAPTURE_BYTES
+                or stdout_path.stat().st_size > _MAX_CAPTURE_BYTES
+                or stderr_path.stat().st_size > _MAX_CAPTURE_BYTES
                 or not export_path.is_file()
+                or export_path.is_symlink()
+                or export_path.stat().st_size > _MAX_EXPORT_BYTES
             ):
                 raise CatalogueError("local GAP catalogue export failed")
             try:
@@ -200,14 +304,10 @@ class LiveCatalogue:
             if not isinstance(exported, dict):
                 raise CatalogueError("local GAP catalogue export is not an object")
             records = normalize_gap_export(exported)
-            if not records or any(
-                record.space_group["international_number"] != it_number
-                for record in records
-            ):
-                raise CatalogueError("normalized catalogue group coverage differs")
-            self._require_display_coverage(records)
+            records = self._validate_record_set(records, it_number)
             geometry = b"".join(canonical_json(record) + b"\n" for record in records)
             metadata = {
+                "cache_key": self._cache_key(it_number),
                 "certification_status": "host-native",
                 "geometry_sha256": _sha256(geometry),
                 "it_number": it_number,
@@ -218,8 +318,6 @@ class LiveCatalogue:
             }
             (temporary / "wyckoff.ndjson").write_bytes(geometry)
             (temporary / "record.json").write_bytes(_canonical_bytes(metadata))
-            if directory.exists():
-                return self._read_cached(directory, it_number)
             temporary.rename(directory)
         return self._read_cached(directory, it_number)
 
@@ -232,11 +330,17 @@ class LiveCatalogue:
         if existing is not None:
             return existing
         directory = self._cache_directory(it_number)
-        result = (
-            self._read_cached(directory, it_number)
-            if directory.is_dir()
-            else self._generate(it_number, directory)
-        )
+        directory.parent.mkdir(parents=True, exist_ok=True)
+        with self._cache_lock(directory):
+            if directory.is_symlink():
+                raise CatalogueError("cached catalogue path cannot be a symlink")
+            if directory.exists() and not directory.is_dir():
+                raise CatalogueError("cached catalogue path is not a directory")
+            result = (
+                self._read_cached(directory, it_number)
+                if directory.is_dir()
+                else self._generate(it_number, directory)
+            )
         self._memory[it_number] = result
         return result
 

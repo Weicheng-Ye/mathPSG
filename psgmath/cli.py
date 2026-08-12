@@ -16,7 +16,7 @@ from .local_gap import host_provenance, probe_gap
 from .solver_status import solver_capabilities
 
 
-_ROOT = Path(__file__).resolve().parents[1]
+RUNTIME_ROOT = Path(__file__).resolve().parent / "_assets"
 
 
 def _default_cache() -> Path:
@@ -82,7 +82,7 @@ def _catalogue(runtime, cache: Path) -> LiveCatalogue:
     return LiveCatalogue(
         runtime,
         cache_root=cache,
-        repository_root=_ROOT,
+        repository_root=RUNTIME_ROOT,
     )
 
 
@@ -127,7 +127,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         batch = build_evidence(
             records,
             runtime=runtime,
-            repository_root=_ROOT,
+            repository_root=RUNTIME_ROOT,
             time_reversal=arguments.mode == "onsite-time",
             timeout_seconds=arguments.timeout,
         )
@@ -151,4 +151,4 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
 
-__all__ = ["build_parser", "main"]
+__all__ = ["RUNTIME_ROOT", "build_parser", "main"]

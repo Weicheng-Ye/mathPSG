@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 import shutil
 import unittest
+from unittest import mock
 
+import psgmath.local_gap as local_gap
 from psgmath.local_gap import (
     GapRuntimeError,
     host_provenance,
@@ -58,6 +61,11 @@ class LocalGapTests(unittest.TestCase):
             set(runtime.packages), {"cryst", "hap", "hapcryst", "json", "io"}
         )
         self.assertTrue(re.fullmatch(r"sha256:[0-9a-f]{64}", runtime.executable_sha256))
+
+    def test_installed_package_fallback_hashes_its_actual_files(self) -> None:
+        with mock.patch.object(local_gap, "_INVENTORY", Path("/does/not/exist")):
+            digest = local_gap.source_inventory_digest()
+        self.assertRegex(digest, r"^sha256:[0-9a-f]{64}$")
 
 
 if __name__ == "__main__":

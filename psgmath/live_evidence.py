@@ -179,13 +179,11 @@ def build_evidence(
     if not exporter.is_file():
         raise EvidenceError("GAP classifier exporter is unavailable")
     request = catalogue_records_gap_request(records, time_reversal=time_reversal)
-    environment = dict(os.environ)
-    environment["MATHPSG_CLASSIFIER_DIAGNOSTIC"] = "1"
     response = run_gap_classifier(
         request,
         timeout_seconds=timeout_seconds,
         command=(runtime.executable, "-q", os.fspath(exporter), "--"),
-        environment=environment,
+        cwd=root,
     )
     if response.status != "conversion_only" or response.affine_pcp_certificate is None:
         failure = response.failures[0].message if response.failures else "unknown failure"

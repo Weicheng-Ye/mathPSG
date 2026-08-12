@@ -3,10 +3,12 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
 
+from psgmath import cli
 from psgmath.cli import build_parser, main
 
 
@@ -23,6 +25,17 @@ class CLITests(unittest.TestCase):
         for command in ("doctor", "catalogue", "evidence", "capabilities"):
             self.assertIn(command, help_text)
         self.assertNotIn("classify", help_text)
+
+    def test_cli_runtime_files_are_packaged_below_psgmath(self) -> None:
+        package = Path(cli.__file__).resolve().parent
+        self.assertTrue(cli.RUNTIME_ROOT.is_relative_to(package))
+        self.assertTrue((cli.RUNTIME_ROOT / "gap/catalogue/export_one.g").is_file())
+        self.assertTrue(
+            (cli.RUNTIME_ROOT / "gap/classifier/export_problem.g").is_file()
+        )
+        self.assertTrue(
+            (cli.RUNTIME_ROOT / "resources/display-crosswalk.ndjson").is_file()
+        )
 
     def test_doctor_records_all_observed_versions(self) -> None:
         code, stdout, stderr = self.run_cli("doctor")

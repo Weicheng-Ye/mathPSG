@@ -21,7 +21,7 @@ final PSG class counts.
 
 ## Requirements
 
-- Python 3.10 or newer; no third-party Python runtime packages.
+- Python 3.11 or newer; no third-party Python runtime packages.
 - GAP available locally.
 - GAP packages Cryst, HAP, HAPcryst, json, and io.
 
@@ -40,34 +40,36 @@ The development host used these exact observed versions:
 Every command probes and records the versions actually used. Evidence is
 labeled `host-native`, never release-certified.
 
-## Install and use
+## Run
 
-From this directory:
+No Python installation step is required. From this directory:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -e .
-.venv/bin/mathpsg doctor
+python3 -m psgmath doctor
 ```
+
+The `pyproject.toml` console entry point is also available when ordinary Python
+build tooling is installed, but the documented path has no third-party Python
+requirement.
 
 Generate or replay the exact catalogue for one space group:
 
 ```bash
-mathpsg catalogue --it-number 227
+python3 -m psgmath catalogue --it-number 227
 ```
 
 Generate the implemented GAP conversion evidence for every Wyckoff position in
 one setting:
 
 ```bash
-mathpsg evidence --it-number 1 --mode spatial
-mathpsg evidence --it-number 1 --mode onsite-time
+python3 -m psgmath evidence --it-number 1 --mode spatial
+python3 -m psgmath evidence --it-number 1 --mode onsite-time
 ```
 
 Inspect the exact implementation boundary:
 
 ```bash
-mathpsg capabilities
+python3 -m psgmath capabilities
 ```
 
 Use `--gap /absolute/path/to/gap` to select a GAP executable and `--cache PATH`

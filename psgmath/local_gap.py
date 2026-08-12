@@ -16,6 +16,7 @@ from typing import Literal, Mapping
 
 
 _ROOT = Path(__file__).resolve().parents[1]
+_PACKAGE_ROOT = Path(__file__).resolve().parent
 _INVENTORY = _ROOT / "EXTRACTED_SOURCES.json"
 _REQUIRED_PACKAGES = ("cryst", "hap", "hapcryst", "json", "io")
 _DISPLAY_NAMES = {
@@ -110,6 +111,29 @@ def probe_gap(executable: str = "gap", timeout_seconds: int = 30) -> GapRuntime:
 def source_inventory_digest() -> str:
     """Verify listed standalone bytes and hash the canonical inventory."""
 
+    if not _INVENTORY.is_file():
+        files = {
+            path.relative_to(_PACKAGE_ROOT).as_posix(): hashlib.sha256(
+                path.read_bytes()
+            ).hexdigest()
+            for path in sorted(_PACKAGE_ROOT.rglob("*"))
+            if path.is_file()
+            and "__pycache__" not in path.relative_to(_PACKAGE_ROOT).parts
+            and path.suffix != ".pyc"
+        }
+        return _sha256(
+            json.dumps(
+                {
+                    "files": files,
+                    "record_type": "mathpsg-installed-source-inventory",
+                    "schema_version": 1,
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        )
     try:
         encoded = _INVENTORY.read_bytes()
         value = json.loads(encoded)

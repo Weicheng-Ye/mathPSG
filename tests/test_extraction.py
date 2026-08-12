@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 from pathlib import Path
 import unittest
@@ -42,6 +43,13 @@ class ExtractionBoundaryTests(unittest.TestCase):
         )
         self.assertNotIn("/opt/mathpsg", exporter)
         self.assertNotIn("/opt/mathpsg", classifier)
+
+    def test_every_shipped_python_module_imports(self) -> None:
+        for path in sorted((ROOT / "psgmath").glob("*.py")):
+            if path.stem == "__main__":
+                continue
+            with self.subTest(module=path.stem):
+                importlib.import_module(f"psgmath.{path.stem}")
 
     def test_source_inventory_replays(self) -> None:
         inventory = json.loads(

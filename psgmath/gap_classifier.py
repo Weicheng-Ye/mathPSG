@@ -1276,8 +1276,6 @@ def _locked_environment_core() -> dict[str, Any]:
 def _environment_core_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "execution_mode": value["execution_mode"],
-        "lock_digest": value["lock_digest"],
-        "oci_image_digest": value["oci_image_digest"],
         "packages": value["packages"],
         "release_certified": value["release_certified"],
         "runtime_provenance_digest": value["runtime_provenance_digest"],
@@ -1292,8 +1290,6 @@ def _validate_environment(value: Any, path: str) -> FrozenJSONObject:
         {
             "environment_id",
             "execution_mode",
-            "lock_digest",
-            "oci_image_digest",
             "packages",
             "release_certified",
             "runtime_provenance_digest",
@@ -1301,25 +1297,17 @@ def _validate_environment(value: Any, path: str) -> FrozenJSONObject:
         path,
     )
     _digest(value["environment_id"], f"{path}.environment_id")
-    _digest(value["lock_digest"], f"{path}.lock_digest")
-    _digest(value["oci_image_digest"], f"{path}.oci_image_digest")
     execution_mode = value["execution_mode"]
-    if execution_mode not in ("diagnostic_local", "locked_image"):
+    if execution_mode != "diagnostic_local":
         raise ValueError(f"{path}.execution_mode: unsupported classifier runtime")
     if value["release_certified"] is not False:
         raise ValueError(
             f"{path}.release_certified: Task 4 responses cannot be release-certified"
         )
     runtime_provenance_digest = value["runtime_provenance_digest"]
-    if execution_mode == "diagnostic_local":
-        if runtime_provenance_digest is not None:
-            raise ValueError(
-                f"{path}.runtime_provenance_digest: diagnostic runtime cannot claim provenance"
-            )
-    else:
-        _digest(
-            runtime_provenance_digest,
-            f"{path}.runtime_provenance_digest",
+    if runtime_provenance_digest is not None:
+        raise ValueError(
+            f"{path}.runtime_provenance_digest: diagnostic runtime cannot claim provenance"
         )
     packages = value["packages"]
     if not isinstance(packages, list) or len(packages) != len(_LOCKED_PACKAGE_VERSIONS):
@@ -1331,7 +1319,7 @@ def _validate_environment(value: Any, path: str) -> FrozenJSONObject:
             raise TypeError(f"{item_path}: expected object")
         _require_fields(
             package,
-            {"archive_sha256", "license_sha256", "name", "version"},
+            {"name", "version"},
             item_path,
         )
         name = package["name"]
@@ -1340,23 +1328,11 @@ def _validate_environment(value: Any, path: str) -> FrozenJSONObject:
         seen.add(name)
         if package["version"] != _LOCKED_PACKAGE_VERSIONS[name]:
             raise ValueError(f"{item_path}.version: locked version mismatch")
-        _digest(package["archive_sha256"], f"{item_path}.archive_sha256")
-        _digest(package["license_sha256"], f"{item_path}.license_sha256")
     if tuple(package["name"] for package in packages) != tuple(sorted(seen)):
         raise ValueError(f"{path}.packages: packages must be sorted by name")
     expected = _domain_digest("classifier-environment-v1", _environment_core_mapping(value))
     if value["environment_id"] != expected:
         raise ValueError(f"{path}.environment_id: does not bind environment payload")
-    declared_environment = {
-        key: value[key]
-        for key in ("lock_digest", "oci_image_digest", "packages")
-    }
-    locked_environment = _locked_environment_core()
-    if declared_environment != {
-        key: locked_environment[key]
-        for key in ("lock_digest", "oci_image_digest", "packages")
-    }:
-        raise ValueError(f"{path}: does not match the locked classifier environment")
     return _freeze_object(value)
 
 
@@ -1711,6 +1687,7 @@ def run_gap_classifier(
     max_diagnostic_bytes: int = 1024 * 1024,
     command: Sequence[str] | None = None,
     environment: Mapping[str, str] | None = None,
+    cwd: str | os.PathLike[str] | None = None,
 ) -> GAPClassifierResponse:
     if not isinstance(request, GAPClassifierRequest):
         raise TypeError("request must be a GAPClassifierRequest")
@@ -1743,6 +1720,13 @@ def run_gap_classifier(
         process_environment = dict(environment)
     else:
         process_environment = None
+    if cwd is None:
+        working_directory = None
+    else:
+        working_directory_path = Path(cwd).resolve(strict=True)
+        if not working_directory_path.is_dir():
+            raise ValueError("classifier working directory must be a directory")
+        working_directory = os.fspath(working_directory_path)
     with tempfile.TemporaryDirectory(prefix="mathpsg-classifier-") as directory:
         root = Path(directory)
         request_path = root / "request.json"
@@ -1757,6 +1741,7 @@ def run_gap_classifier(
                 bufsize=0,
                 start_new_session=True,
                 env=process_environment,
+                cwd=working_directory,
             )
         except OSError:
             return _error_response(
