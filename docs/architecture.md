@@ -13,10 +13,10 @@ IT number
   -> host-native evidence summary
 ```
 
-`psgmath.local_gap` resolves and hashes the executable and probes GAP, Cryst,
-HAP, HAPcryst, json, and io. `psgmath.live_catalogue` generates one group only
+`mathpsg.local_gap` resolves and hashes the executable and probes GAP, Cryst,
+HAP, HAPcryst, json, and io. `mathpsg.live_catalogue` generates one group only
 when requested, matches exact geometry to display metadata by persistent
-Wyckoff ID, and never guesses letters. `psgmath.live_evidence` is a thin copy of
+Wyckoff ID, and never guesses letters. `mathpsg.live_evidence` is a thin copy of
 the generic catalogue-to-GAP request adapter plus local process wiring; the
 mathematical affine/PCP conversion and replay logic stays in the copied
 `gap_classifier` module.

@@ -29,8 +29,10 @@ The implementation and focused regressions establish:
 - pure replay of content-addressed cache evidence without rerunning the GAP
   catalogue, Task4, or Task5 solver jobs; the selected GAP runtime is freshly
   reprobed to verify its executable and package identity;
-- immutable public results with no retained backend or Task5 authority;
-- runtime, package, executable, and installed-source provenance.
+- immutable public results with no retained backend, Task5 authority, or
+  runtime-provenance record;
+- internal runtime, package, executable, and installed-source provenance for
+  cache identity and replay.
 
 ## Real local-GAP regressions completed
 
@@ -45,13 +47,13 @@ The implementation and focused regressions establish:
 - public Python `classify()` finite/count, details, cache replay, and U1
   continuity behavior.
 
-An installed-layout simulation copied only the `psgmath` package into a fresh
+An installed-layout simulation copied only the `mathpsg` package into a fresh
 site directory, changed the working directory outside the repository, and ran:
 
 ```bash
-python3 -c 'from psgmath import classify'
-python3 -m psgmath capabilities
-python3 -m psgmath classify --it-number 1 --wps a --igg Z2
+python3 -c 'from mathpsg import classify'
+python3 -m mathpsg capabilities
+python3 -m mathpsg classify --it-number 1 --wps a --igg Z2
 ```
 
 The real CLI query completed with exact unframed class count `8`,

@@ -1,4 +1,4 @@
-"""Read the fixed set of public resources shipped with :mod:`psgmath`."""
+"""Read the fixed set of public resources shipped with :mod:`mathpsg`."""
 
 from __future__ import annotations
 
@@ -29,8 +29,8 @@ _MANIFEST_NAME = "manifest.json"
 
 def _resource(relative_path: str):
     if type(relative_path) is not str or relative_path not in _ASSET_PATH_SET:
-        raise ValueError(f"resource is not in the psgmath asset allowlist: {relative_path!r}")
-    item = resources.files("psgmath").joinpath(_RESOURCE_DIRECTORY)
+        raise ValueError(f"resource is not in the mathpsg asset allowlist: {relative_path!r}")
+    item = resources.files("mathpsg").joinpath(_RESOURCE_DIRECTORY)
     for component in relative_path.split("/"):
         item = item.joinpath(component)
     return item
@@ -59,7 +59,7 @@ def _release_resource(relative_path: str):
         or any("\\" in component or "\x00" in component for component in components)
     ):
         raise ValueError(f"invalid Task 5 release resource path: {relative_path!r}")
-    item = resources.files("psgmath").joinpath(_RESOURCE_DIRECTORY)
+    item = resources.files("mathpsg").joinpath(_RESOURCE_DIRECTORY)
     for component in components:
         item = item.joinpath(component)
         is_symlink = getattr(item, "is_symlink", None)
@@ -134,7 +134,7 @@ def as_asset_file(relative_path: str) -> Iterator[Path]:
 def asset_manifest() -> dict[str, Any]:
     """Return a fresh decode of the packaged asset-integrity manifest."""
 
-    manifest = resources.files("psgmath").joinpath(
+    manifest = resources.files("mathpsg").joinpath(
         _RESOURCE_DIRECTORY, _MANIFEST_NAME
     )
     value = json.loads(manifest.read_text(encoding="utf-8"))

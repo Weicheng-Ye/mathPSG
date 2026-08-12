@@ -1,7 +1,7 @@
 """Certified compact-:math:`U(1)` relative classifier.
 
 The low-level solver in this module never accepts a matrix without also
-receiving, and replaying, the :class:`~psgmath.relative_complex.RelativeProblem`
+receiving, and replaying, the :class:`~mathpsg.relative_complex.RelativeProblem`
 from which it was assembled.  The public sector classifier adds the local
 normalized-bar coordinate authority below; keeping these layers distinct
 prevents a self-consistent matrix rehash from becoming a classification

@@ -5,9 +5,9 @@ import json
 import tempfile
 import unittest
 
-from psgmath.live_catalogue import LiveCatalogue
-from psgmath.live_evidence import build_evidence
-from psgmath.local_gap import probe_gap
+from mathpsg.live_catalogue import LiveCatalogue
+from mathpsg.live_evidence import build_evidence
+from mathpsg.local_gap import probe_gap
 
 
 ROOT = Path(__file__).resolve().parents[1]

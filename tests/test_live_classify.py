@@ -7,18 +7,18 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from psgmath.catalogue_loader import CatalogueIndex
-from psgmath.certified_classifier import (
+from mathpsg.catalogue_loader import CatalogueIndex
+from mathpsg.certified_classifier import (
     ArtifactPlan,
     classify_request,
     verify_u1_sector_coverage,
 )
-from psgmath.classifier_cache import ClassifierCache
-from psgmath.host_classifier_backend import HostNativeClassifierBackend
-from psgmath.live_catalogue import LiveCatalogue
-from psgmath.live_classify import resolve_occupancy_request
-from psgmath.local_gap import probe_gap
-from psgmath.query import make_diagnostic_verified_catalogue
+from mathpsg.classifier_cache import ClassifierCache
+from mathpsg.host_classifier_backend import HostNativeClassifierBackend
+from mathpsg.live_catalogue import LiveCatalogue
+from mathpsg.live_classify import resolve_occupancy_request
+from mathpsg.local_gap import probe_gap
+from mathpsg.query import make_diagnostic_verified_catalogue
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,7 +33,7 @@ class PublicClassifyTests(unittest.TestCase):
         cls.root = Path(cls.temporary.name).resolve()
 
     def test_public_classify_is_exported_immutable_and_cache_replayable(self) -> None:
-        from psgmath import classify
+        from mathpsg import classify
 
         first = classify(
             1, ["a"], igg="Z2", gap=self.runtime.executable,
@@ -50,6 +50,7 @@ class PublicClassifyTests(unittest.TestCase):
         self.assertGreater(first.class_count, 0)
         self.assertFalse(first.continuous)
         self.assertEqual(first.certification_status, "host-native")
+        self.assertFalse(hasattr(first, "runtime"))
         self.assertFalse(hasattr(first, "backend"))
         self.assertFalse(hasattr(first, "cache"))
         self.assertIsNone(first.details)
@@ -57,7 +58,7 @@ class PublicClassifyTests(unittest.TestCase):
             first.class_count = 0
 
     def test_public_invalid_request_does_not_probe_gap(self) -> None:
-        from psgmath import classify
+        from mathpsg import classify
 
         invalid = (
             ((0, ["a"]), {}),
@@ -67,7 +68,7 @@ class PublicClassifyTests(unittest.TestCase):
             ((1, ["a"]), {"time_reversal": 1}),
             ((1, ["a"]), {"setting": " 1"}),
         )
-        with patch("psgmath.live_classify.probe_gap") as probe:
+        with patch("mathpsg.live_classify.probe_gap") as probe:
             for arguments, keywords in invalid:
                 with self.subTest(arguments=arguments, keywords=keywords):
                     with self.assertRaises((TypeError, ValueError)):
@@ -75,7 +76,7 @@ class PublicClassifyTests(unittest.TestCase):
             probe.assert_not_called()
 
     def test_public_details_are_fresh_capability_free_values(self) -> None:
-        from psgmath import classify
+        from mathpsg import classify
 
         first = classify(
             1, ["a"], igg="Z2", gap=self.runtime.executable,
@@ -93,7 +94,7 @@ class PublicClassifyTests(unittest.TestCase):
         self.assertNotIn("authority", first.details)
 
     def test_public_u1_reports_continuity_from_exact_quotient(self) -> None:
-        from psgmath import classify
+        from mathpsg import classify
 
         result = classify(
             1, ["a"], igg="U1", gap=self.runtime.executable,
@@ -200,7 +201,7 @@ class LiveJointZ2Tests(unittest.TestCase):
             CatalogueIndex(self.catalogue.records(1)), backend=replay_backend
         )
         with patch(
-            "psgmath.host_classifier_backend.build_host_source_evidence",
+            "mathpsg.host_classifier_backend.build_host_source_evidence",
             side_effect=AssertionError("cache replay must not rerun GAP solver jobs"),
         ) as launcher:
             second = classify_request(
@@ -275,7 +276,7 @@ class LiveJointZ2Tests(unittest.TestCase):
             CatalogueIndex(self.catalogue.records(1)), backend=replay_backend
         )
         with patch(
-            "psgmath.host_classifier_backend.build_host_source_evidence",
+            "mathpsg.host_classifier_backend.build_host_source_evidence",
             side_effect=AssertionError("forged cache must not execute GAP"),
         ):
             attacked = classify_request(

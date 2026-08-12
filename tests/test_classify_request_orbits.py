@@ -8,22 +8,22 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from psgmath.catalogue_loader import CatalogueIndex, load_ndjson
-from psgmath.certified_classifier import (
+from mathpsg.catalogue_loader import CatalogueIndex, load_ndjson
+from mathpsg.certified_classifier import (
     BackendIdentity,
     ClassifierBackendAuthority,
     classify_request,
 )
-from psgmath.classification_schema import ClassificationRequest, OrbitInstance
-from psgmath.classifier_cache import ClassifierCache
-from psgmath.query import (
+from mathpsg.classification_schema import ClassificationRequest, OrbitInstance
+from mathpsg.classifier_cache import ClassifierCache
+from mathpsg.query import (
     make_diagnostic_verified_catalogue,
     resolve_request_orbits,
     verify_verified_catalogue,
 )
-from psgmath.live_catalogue import CatalogueError, LiveCatalogue
-from psgmath.live_classify import resolve_occupancy_request
-from psgmath.local_gap import probe_gap
+from mathpsg.live_catalogue import CatalogueError, LiveCatalogue
+from mathpsg.live_classify import resolve_occupancy_request
+from mathpsg.local_gap import probe_gap
 
 
 ROOT = Path(__file__).resolve().parents[1]

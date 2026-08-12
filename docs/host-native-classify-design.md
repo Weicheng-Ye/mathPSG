@@ -34,7 +34,7 @@ classification must retain both instances.
 The Python entry point is:
 
 ```python
-from psgmath import classify
+from mathpsg import classify
 
 result = classify(
     99,
@@ -62,7 +62,7 @@ It also accepts `--time-reversal`, `--setting`, `--details`, `--gap`, `--cache`,
 and `--timeout`.
 
 The result is an immutable public value. It reports the normalized request,
-status, host-runtime provenance, and:
+host-native status, and:
 
 - `class_count: int` for a finite classification;
 - `class_count: None` when a U1 result has continuous families;
@@ -71,7 +71,7 @@ status, host-runtime provenance, and:
   obstructions when `details=True`.
 
 No live internal capability objects, mutable solver graphs, subprocess handles,
-or cache paths are returned.
+cache paths, or runtime-provenance records are returned.
 
 ## Architecture
 

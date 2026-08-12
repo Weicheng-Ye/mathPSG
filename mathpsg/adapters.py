@@ -1,6 +1,6 @@
 """Adapters from the original three-dimensional lattice implementation.
 
-Classifier v0.1 uses :mod:`psgmath.periodic`, whose cell actions work in an
+Classifier v0.1 uses :mod:`mathpsg.periodic`, whose cell actions work in an
 arbitrary dimension.  The completed benchmarks predate that module and store
 their crystallographic actions as exact rational affine maps.  This adapter
 keeps those certified inputs authoritative while exposing them through the
@@ -11,10 +11,10 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from psgmath.affine import AffineMap
-from psgmath.lattice import PeriodicLattice
-from psgmath.periodic import CellSymmetry, PeriodicAction
-from psgmath.presentation import GradedPresentation, Word
+from mathpsg.affine import AffineMap
+from mathpsg.lattice import PeriodicLattice
+from mathpsg.periodic import CellSymmetry, PeriodicAction
+from mathpsg.presentation import GradedPresentation, Word
 
 
 def cell_symmetry_from_affine(

@@ -8,13 +8,10 @@ import tempfile
 import unittest
 from unittest import mock
 
-from psgmath.live_classify import (
-    HostNativeClassificationResult,
-    HostRuntimeProvenance,
-)
-from psgmath.classification_schema import FrozenJSONObject
-from psgmath import cli
-from psgmath.cli import build_parser, main
+from mathpsg.live_classify import HostNativeClassificationResult
+from mathpsg.classification_schema import FrozenJSONObject
+from mathpsg import cli
+from mathpsg.cli import build_parser, main
 
 
 class CLITests(unittest.TestCase):
@@ -40,17 +37,8 @@ class CLITests(unittest.TestCase):
             summaries=(),
             details=None,
             certification_status="host-native",
-            runtime=HostRuntimeProvenance(
-                certification_status="host-native",
-                gap_version="4.15.1",
-                gap_packages=(("cryst", "4.1.30"),),
-                gap_executable_sha256="sha256:" + "0" * 64,
-                python_version="3.14.6",
-                package_version="0.1.0",
-                source_inventory_digest="sha256:" + "1" * 64,
-            ),
         )
-        with mock.patch("psgmath.cli.classify", return_value=expected) as calculate:
+        with mock.patch("mathpsg.cli.classify", return_value=expected) as calculate:
             code, stdout, stderr = self.run_cli(
                 "classify", "--it-number", "1", "--wps", "a", "--igg", "Z2"
             )
@@ -59,11 +47,11 @@ class CLITests(unittest.TestCase):
         output = json.loads(stdout)
         self.assertEqual(output["class_count"], 3)
         self.assertEqual(output["request"]["space_group"], 1)
-        self.assertEqual(output["runtime"]["gap_packages"], {"cryst": "4.1.30"})
+        self.assertNotIn("runtime", output)
         calculate.assert_called_once()
         self.assertEqual(calculate.call_args.args, (1, ["a"]))
 
-    def test_cli_runtime_files_are_packaged_below_psgmath(self) -> None:
+    def test_cli_runtime_files_are_packaged_below_mathpsg(self) -> None:
         package = Path(cli.__file__).resolve().parent
         self.assertTrue(cli.RUNTIME_ROOT.is_relative_to(package))
         self.assertTrue((cli.RUNTIME_ROOT / "gap/catalogue/export_one.g").is_file())
@@ -99,7 +87,7 @@ class CLITests(unittest.TestCase):
         self.assertEqual(value["wyckoff_positions"][0]["label"], "1a")
 
     def test_backend_errors_return_one_without_traceback(self) -> None:
-        with mock.patch("psgmath.cli.probe_gap", side_effect=RuntimeError("no GAP")):
+        with mock.patch("mathpsg.cli.probe_gap", side_effect=RuntimeError("no GAP")):
             code, stdout, stderr = self.run_cli("doctor")
         self.assertEqual(code, 1)
         self.assertEqual(stdout, "")

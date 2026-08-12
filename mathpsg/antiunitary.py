@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Callable
 
-from psgmath.su2 import E2, ONE_SU2, QuaternionSU2
+from mathpsg.su2 import E2, ONE_SU2, QuaternionSU2
 
 
 SU2Involution = Callable[[QuaternionSU2], QuaternionSU2]

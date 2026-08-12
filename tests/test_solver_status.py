@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-import psgmath
-from psgmath.solver_status import solver_capabilities
+import mathpsg
+from mathpsg.solver_status import solver_capabilities
 
 
 class SolverBoundaryTests(unittest.TestCase):
@@ -14,8 +14,8 @@ class SolverBoundaryTests(unittest.TestCase):
         self.assertTrue(status["live_evidence_bridge_present"])
         self.assertFalse(status["bundled_stabilizer_skeletons_present"])
         self.assertTrue(status["public_classify_api_present"])
-        self.assertIn("classify", psgmath.__all__)
-        self.assertTrue(callable(psgmath.classify))
+        self.assertIn("classify", mathpsg.__all__)
+        self.assertTrue(callable(mathpsg.classify))
         self.assertIn("host-native", status["reason"])
         self.assertIn("rather than release-certified", status["reason"])
 

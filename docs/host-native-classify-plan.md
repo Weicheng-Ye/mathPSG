@@ -32,11 +32,11 @@ HAP 1.70, HAPcryst 0.1.15, json 2.2.3, io 4.9.3, `unittest`.
 
 ## File Structure
 
-- `psgmath/catalogue_loader.py`: immutable `CatalogueIndex`.
-- `psgmath/query.py`: request resolution and verified catalogue authority.
-- `psgmath/certified_classifier.py`: staged joint classifier orchestration.
-- `psgmath/host_classifier_backend.py`: local GAP production and four backend stages.
-- `psgmath/live_classify.py`: public validation, orchestration, and result values.
+- `mathpsg/catalogue_loader.py`: immutable `CatalogueIndex`.
+- `mathpsg/query.py`: request resolution and verified catalogue authority.
+- `mathpsg/certified_classifier.py`: staged joint classifier orchestration.
+- `mathpsg/host_classifier_backend.py`: local GAP production and four backend stages.
+- `mathpsg/live_classify.py`: public validation, orchestration, and result values.
 - `tests/test_classify_request_orbits.py`: occupancy semantics.
 - `tests/test_host_classifier_backend.py`: backend contract and replay.
 - `tests/test_live_classify.py`: API and real-GAP integration.
@@ -46,9 +46,9 @@ HAP 1.70, HAPcryst 0.1.15, json 2.2.3, io 4.9.3, `unittest`.
 ### Task 1: Restore Generic Joint-Classifier Orchestration
 
 **Files:**
-- Create: `psgmath/catalogue_loader.py`
-- Create: `psgmath/query.py`
-- Create: `psgmath/certified_classifier.py`
+- Create: `mathpsg/catalogue_loader.py`
+- Create: `mathpsg/query.py`
+- Create: `mathpsg/certified_classifier.py`
 - Create: `tests/test_classify_request_orbits.py`
 
 **Interfaces:**
@@ -60,9 +60,9 @@ HAP 1.70, HAPcryst 0.1.15, json 2.2.3, io 4.9.3, `unittest`.
 - [ ] **Step 1: Write the failing import test**
 
 ```python
-from psgmath.catalogue_loader import CatalogueIndex
-from psgmath.query import make_diagnostic_verified_catalogue
-from psgmath.certified_classifier import ClassifierBackendAuthority
+from mathpsg.catalogue_loader import CatalogueIndex
+from mathpsg.query import make_diagnostic_verified_catalogue
+from mathpsg.certified_classifier import ClassifierBackendAuthority
 
 def test_live_records_form_diagnostic_catalogue(self):
     index = CatalogueIndex(self.records)
@@ -74,7 +74,7 @@ def test_live_records_form_diagnostic_catalogue(self):
 - [ ] **Step 2: Verify RED**
 
 Run `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.test_classify_request_orbits -v`.
-Expected: import failure for `psgmath.catalogue_loader`.
+Expected: import failure for `mathpsg.catalogue_loader`.
 
 - [ ] **Step 3: Copy the three modules directly from the source tree**
 
@@ -90,7 +90,7 @@ module to import and the source inventory to replay.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add psgmath/catalogue_loader.py psgmath/query.py psgmath/certified_classifier.py
+git add mathpsg/catalogue_loader.py mathpsg/query.py mathpsg/certified_classifier.py
 git add tests/test_classify_request_orbits.py EXTRACTED_SOURCES.json
 git commit -m "feat: restore joint classifier orchestration"
 ```
@@ -98,7 +98,7 @@ git commit -m "feat: restore joint classifier orchestration"
 ### Task 2: Construct One Ordered Occupancy Request
 
 **Files:**
-- Create: `psgmath/live_classify.py`
+- Create: `mathpsg/live_classify.py`
 - Modify: `tests/test_classify_request_orbits.py`
 
 **Interfaces:**
@@ -146,7 +146,7 @@ non-boolean time reversal, and mismatched settings.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add psgmath/live_classify.py tests/test_classify_request_orbits.py
+git add mathpsg/live_classify.py tests/test_classify_request_orbits.py
 git add EXTRACTED_SOURCES.json
 git commit -m "feat: construct joint occupancy requests"
 ```
@@ -154,7 +154,7 @@ git commit -m "feat: construct joint occupancy requests"
 ### Task 3: Produce Grouped Host-Native GAP Source Evidence
 
 **Files:**
-- Create: `psgmath/host_classifier_backend.py`
+- Create: `mathpsg/host_classifier_backend.py`
 - Create: `tests/test_host_classifier_backend.py`
 
 **Interfaces:**
@@ -180,7 +180,7 @@ def test_grouped_source_deduplicates_only_identical_inclusions(self):
 
 - [ ] **Step 2: Verify RED**
 
-Expected: import failure for `psgmath.host_classifier_backend`.
+Expected: import failure for `mathpsg.host_classifier_backend`.
 
 - [ ] **Step 3: Implement grouped local GAP execution**
 
@@ -197,7 +197,7 @@ version and require failure before returning evidence.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add psgmath/host_classifier_backend.py tests/test_host_classifier_backend.py
+git add mathpsg/host_classifier_backend.py tests/test_host_classifier_backend.py
 git add EXTRACTED_SOURCES.json
 git commit -m "feat: build host-native classifier evidence"
 ```
@@ -205,7 +205,7 @@ git commit -m "feat: build host-native classifier evidence"
 ### Task 4: Generate Local Z2 and U1 Branches On Demand
 
 **Files:**
-- Modify: `psgmath/host_classifier_backend.py`
+- Modify: `mathpsg/host_classifier_backend.py`
 - Modify: `tests/test_host_classifier_backend.py`
 
 **Interfaces:**
@@ -242,7 +242,7 @@ Removing, duplicating, reordering, or rebinding branches must fail.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add psgmath/host_classifier_backend.py tests/test_host_classifier_backend.py
+git add mathpsg/host_classifier_backend.py tests/test_host_classifier_backend.py
 git add EXTRACTED_SOURCES.json
 git commit -m "feat: enumerate live local PSG branches"
 ```
@@ -250,7 +250,7 @@ git commit -m "feat: enumerate live local PSG branches"
 ### Task 5: Assemble One Joint Relative Z2 Layer
 
 **Files:**
-- Modify: `psgmath/host_classifier_backend.py`
+- Modify: `mathpsg/host_classifier_backend.py`
 - Create: `tests/test_live_classify.py`
 
 **Interfaces:**
@@ -289,7 +289,7 @@ of separate single-WP classification or count multiplication.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add psgmath/host_classifier_backend.py tests/test_live_classify.py
+git add mathpsg/host_classifier_backend.py tests/test_live_classify.py
 git add EXTRACTED_SOURCES.json
 git commit -m "feat: solve joint host-native Z2 classifications"
 ```
@@ -297,7 +297,7 @@ git commit -m "feat: solve joint host-native Z2 classifications"
 ### Task 6: Assemble Every U1 Sector and Continuous Result
 
 **Files:**
-- Modify: `psgmath/host_classifier_backend.py`
+- Modify: `mathpsg/host_classifier_backend.py`
 - Modify: `tests/test_live_classify.py`
 
 **Interfaces:**
@@ -335,7 +335,7 @@ presentation details for continuous families.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add psgmath/host_classifier_backend.py tests/test_live_classify.py
+git add mathpsg/host_classifier_backend.py tests/test_live_classify.py
 git add EXTRACTED_SOURCES.json
 git commit -m "feat: solve joint host-native U1 classifications"
 ```
@@ -343,9 +343,9 @@ git commit -m "feat: solve joint host-native U1 classifications"
 ### Task 7: Publish Immutable Python Results and Cache Replay
 
 **Files:**
-- Modify: `psgmath/live_classify.py`
-- Modify: `psgmath/__init__.py`
-- Modify: `psgmath/solver_status.py`
+- Modify: `mathpsg/live_classify.py`
+- Modify: `mathpsg/__init__.py`
+- Modify: `mathpsg/solver_status.py`
 - Modify: `tests/test_live_classify.py`
 
 **Interfaces:**
@@ -353,13 +353,14 @@ git commit -m "feat: solve joint host-native U1 classifications"
   setting=None, details=False, gap="gap", cache=None, timeout=300) ->
   HostNativeClassificationResult`.
 - The immutable result exposes request, count/continuity, summaries or details,
-  host status, and runtime provenance.
+  and host status. Runtime provenance remains internal to execution and cache
+  validation.
 
 - [ ] **Step 1: Write failing export and isolation tests**
 
 ```python
 def test_public_classify_is_exported_and_returns_fresh_values(self):
-    from psgmath import classify
+    from mathpsg import classify
     first = classify(1, ["a"], igg="Z2", cache=self.cache)
     second = classify(1, ["a"], igg="Z2", cache=self.cache)
     self.assertEqual(first, second)
@@ -369,7 +370,7 @@ def test_public_classify_is_exported_and_returns_fresh_values(self):
 
 - [ ] **Step 2: Verify RED**
 
-Expected: `psgmath.classify` is absent.
+Expected: `mathpsg.classify` is absent.
 
 - [ ] **Step 3: Implement lazy orchestration and public conversion**
 
@@ -387,7 +388,7 @@ mutation and runtime/source drift.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add psgmath/live_classify.py psgmath/__init__.py psgmath/solver_status.py
+git add mathpsg/live_classify.py mathpsg/__init__.py mathpsg/solver_status.py
 git add tests/test_live_classify.py EXTRACTED_SOURCES.json
 git commit -m "feat: expose host-native PSG classify API"
 ```
@@ -395,7 +396,7 @@ git commit -m "feat: expose host-native PSG classify API"
 ### Task 8: Add CLI, Documentation, and Full Verification
 
 **Files:**
-- Modify: `psgmath/cli.py`
+- Modify: `mathpsg/cli.py`
 - Modify: `tests/test_cli.py`
 - Modify: `README.md`
 - Modify: `VERIFICATION.md`
@@ -446,6 +447,6 @@ through a new failing test, rerun verification, regenerate the inventory, and
 commit.
 
 ```bash
-git add psgmath tests README.md VERIFICATION.md EXTRACTED_SOURCES.json
+git add mathpsg tests README.md VERIFICATION.md EXTRACTED_SOURCES.json
 git commit -m "docs: publish host-native PSG calculator"
 ```

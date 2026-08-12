@@ -12,7 +12,6 @@ from .live_evidence import HostNativeEvidenceBatch, build_evidence
 from .live_classify import (
     ClassificationError,
     HostNativeClassificationResult,
-    HostRuntimeProvenance,
     classify,
 )
 from .local_gap import GapRuntime, probe_gap
@@ -25,7 +24,6 @@ __all__ = [
     "GradedSU2Element",
     "HostNativeEvidenceBatch",
     "HostNativeClassificationResult",
-    "HostRuntimeProvenance",
     "LiveCatalogue",
     "PeriodicLattice",
     "build_evidence",

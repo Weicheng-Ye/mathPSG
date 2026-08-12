@@ -6,8 +6,8 @@ import shutil
 import unittest
 from unittest import mock
 
-import psgmath.local_gap as local_gap
-from psgmath.local_gap import (
+import mathpsg.local_gap as local_gap
+from mathpsg.local_gap import (
     GapRuntimeError,
     host_provenance,
     parse_gap_probe,

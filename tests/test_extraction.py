@@ -12,15 +12,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ExtractionBoundaryTests(unittest.TestCase):
     def test_required_scaffold_exists(self) -> None:
-        for relative in ("LICENSE", "README.md", "pyproject.toml", "psgmath"):
+        for relative in ("LICENSE", "README.md", "pyproject.toml", "mathpsg"):
             self.assertTrue((ROOT / relative).exists(), relative)
 
     def test_forbidden_trees_and_dependencies_are_absent(self) -> None:
         for relative in (
             "containers",
             "release",
-            "psgmath/benchmarks",
-            "psgmath/audits",
+            "mathpsg/benchmarks",
+            "mathpsg/audits",
         ):
             self.assertFalse((ROOT / relative).exists(), relative)
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
@@ -38,18 +38,18 @@ class ExtractionBoundaryTests(unittest.TestCase):
         exporter = (ROOT / "gap/classifier/export_problem.g").read_text(
             encoding="utf-8"
         )
-        classifier = (ROOT / "psgmath/gap_classifier.py").read_text(
+        classifier = (ROOT / "mathpsg/gap_classifier.py").read_text(
             encoding="utf-8"
         )
         self.assertNotIn("/opt/mathpsg", exporter)
         self.assertNotIn("/opt/mathpsg", classifier)
 
     def test_every_shipped_python_module_imports(self) -> None:
-        for path in sorted((ROOT / "psgmath").glob("*.py")):
+        for path in sorted((ROOT / "mathpsg").glob("*.py")):
             if path.stem == "__main__":
                 continue
             with self.subTest(module=path.stem):
-                importlib.import_module(f"psgmath.{path.stem}")
+                importlib.import_module(f"mathpsg.{path.stem}")
 
     def test_source_inventory_replays(self) -> None:
         inventory = json.loads(
@@ -67,9 +67,9 @@ class ExtractionBoundaryTests(unittest.TestCase):
             (ROOT / "EXTRACTED_SOURCES.json").read_text(encoding="utf-8")
         )["files"]
         expected_sources = {
-            "psgmath/catalogue_loader.py": "a1b22f9a5248a01e5de1a0b6a53aef0287c8b4c198b073178642796f7022be2e",
-            "psgmath/query.py": "5f88e8e0580f0288d523836be8e1cb855390abfbffcc5461d5995961b70cf9d7",
-            "psgmath/certified_classifier.py": "88ca499fe668085049b9be8ae5544ff27c380c8a6f0a3d530eaa59f88276efc1",
+            "mathpsg/catalogue_loader.py": "a1b22f9a5248a01e5de1a0b6a53aef0287c8b4c198b073178642796f7022be2e",
+            "mathpsg/query.py": "5f88e8e0580f0288d523836be8e1cb855390abfbffcc5461d5995961b70cf9d7",
+            "mathpsg/certified_classifier.py": "88ca499fe668085049b9be8ae5544ff27c380c8a6f0a3d530eaa59f88276efc1",
         }
         for relative, source_sha256 in expected_sources.items():
             with self.subTest(relative=relative):

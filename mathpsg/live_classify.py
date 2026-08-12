@@ -27,7 +27,7 @@ from .certified_classifier import classify_request
 from .classifier_cache import ClassifierCache
 from .host_classifier_backend import HostNativeClassifierBackend
 from .live_catalogue import CatalogueError, LiveCatalogue
-from .local_gap import host_provenance, probe_gap
+from .local_gap import probe_gap
 from .query import make_diagnostic_verified_catalogue
 
 
@@ -41,17 +41,6 @@ class ClassificationError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
-class HostRuntimeProvenance:
-    certification_status: str
-    gap_version: str
-    gap_packages: tuple[tuple[str, str], ...]
-    gap_executable_sha256: str
-    python_version: str
-    package_version: str
-    source_inventory_digest: str
-
-
-@dataclass(frozen=True, slots=True)
 class HostNativeClassificationResult:
     """Capability-free immutable result of one joint host-native calculation."""
 
@@ -61,7 +50,6 @@ class HostNativeClassificationResult:
     summaries: tuple[FrozenJSONObject, ...]
     details: FrozenJSONObject | None
     certification_status: str
-    runtime: HostRuntimeProvenance
 
 
 def _plain(value):
@@ -83,22 +71,12 @@ def classification_result_mapping(
 
     if type(value) is not HostNativeClassificationResult:
         raise TypeError("expected HostNativeClassificationResult")
-    runtime = value.runtime
     return {
         "certification_status": value.certification_status,
         "class_count": value.class_count,
         "continuous": value.continuous,
         "details": None if value.details is None else _plain(value.details),
         "request": _plain(value.request),
-        "runtime": {
-            "certification_status": runtime.certification_status,
-            "gap_executable_sha256": runtime.gap_executable_sha256,
-            "gap_packages": dict(runtime.gap_packages),
-            "gap_version": runtime.gap_version,
-            "package_version": runtime.package_version,
-            "python_version": runtime.python_version,
-            "source_inventory_digest": runtime.source_inventory_digest,
-        },
         "summaries": [_plain(item) for item in value.summaries],
     }
 
@@ -121,23 +99,7 @@ def _frozen_mapping(value: Mapping[str, object]) -> FrozenJSONObject:
     return FrozenJSONObject(tuple(value.items()))
 
 
-def _runtime_provenance(runtime) -> HostRuntimeProvenance:
-    value = host_provenance(runtime)
-    gap = value["gap"]
-    package = value["package"]
-    python = value["python"]
-    return HostRuntimeProvenance(
-        certification_status="host-native",
-        gap_version=str(gap["version"]),
-        gap_packages=tuple(sorted(dict(gap["packages"]).items())),
-        gap_executable_sha256=str(gap["executable_sha256"]),
-        python_version=str(python["version"]),
-        package_version=str(package["version"]),
-        source_inventory_digest=str(value["source_inventory_digest"]),
-    )
-
-
-def _public_result(value, request, runtime, *, details: bool):
+def _public_result(value, request, *, details: bool):
     if value.record.layer.status != "complete" or value.unframed_quotient is None:
         failures = value.record.layer.failures
         reason = (
@@ -176,7 +138,6 @@ def _public_result(value, request, runtime, *, details: bool):
         summaries=summaries,
         details=detail_value,
         certification_status="host-native",
-        runtime=_runtime_provenance(runtime),
     )
 
 
@@ -341,13 +302,12 @@ def classify(
         cache=ClassifierCache(cache_root / "classifier"),
         timeout_seconds=timeout,
     )
-    return _public_result(value, request, runtime, details=details)
+    return _public_result(value, request, details=details)
 
 
 __all__ = [
     "ClassificationError",
     "HostNativeClassificationResult",
-    "HostRuntimeProvenance",
     "classify",
     "classification_result_mapping",
     "resolve_occupancy_request",

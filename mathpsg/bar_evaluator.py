@@ -753,10 +753,10 @@ _LOCKED_RUNTIME_STATIC_ROOTS = frozenset(
         ("file", "/workspace/environments/classifier-gap.lock.json"),
         (
             "file",
-            "/workspace/psgmath/_assets/environments/classifier-gap.lock.json",
+            "/workspace/mathpsg/_assets/environments/classifier-gap.lock.json",
         ),
         *(
-            ("file", f"/workspace/psgmath/{name}")
+            ("file", f"/workspace/mathpsg/{name}")
             for name in (
                 "__init__.py",
                 "_resources.py",
@@ -777,7 +777,7 @@ _LOCKED_RUNTIME_STATIC_ROOTS = frozenset(
         ("tree", "/opt/mathpsg/python"),
         ("tree", "/opt/mathpsg/python-standalone-licenses"),
         ("tree", "/workspace/gap/classifier"),
-        ("tree", "/workspace/psgmath/_assets/gap/classifier"),
+        ("tree", "/workspace/mathpsg/_assets/gap/classifier"),
     }
 )
 

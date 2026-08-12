@@ -6,8 +6,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from psgmath.live_catalogue import CatalogueError, LiveCatalogue
-from psgmath.local_gap import probe_gap
+from mathpsg.live_catalogue import CatalogueError, LiveCatalogue
+from mathpsg.local_gap import probe_gap
 
 
 ROOT = Path(__file__).resolve().parents[1]

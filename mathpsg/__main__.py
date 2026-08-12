@@ -1,4 +1,4 @@
-"""Module entry point for ``python -m psgmath``."""
+"""Module entry point for ``python -m mathpsg``."""
 
 from .cli import main
 

@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from math import prod
 
-from psgmath.integer_linalg import (
+from mathpsg.integer_linalg import (
     MatrixInput,
     MatrixZ,
     SmithForm,

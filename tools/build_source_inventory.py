@@ -10,19 +10,26 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "EXTRACTED_SOURCES.json"
-EXCLUDED_PARTS = {".git", "__pycache__"}
-EXCLUDED_FILES = {"EXTRACTED_SOURCES.json"}
+EXCLUDED_PARTS = {
+    ".git",
+    ".pytest_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+}
+EXCLUDED_FILES = {".DS_Store", "EXTRACTED_SOURCES.json"}
 COPIED_SOURCES = {
-    "psgmath/catalogue_loader.py": (
-        "psgmath/catalogue_loader.py",
+    "mathpsg/catalogue_loader.py": (
+        "mathpsg/catalogue_loader.py",
         "a1b22f9a5248a01e5de1a0b6a53aef0287c8b4c198b073178642796f7022be2e",
     ),
-    "psgmath/query.py": (
-        "psgmath/query.py",
+    "mathpsg/query.py": (
+        "mathpsg/query.py",
         "5f88e8e0580f0288d523836be8e1cb855390abfbffcc5461d5995961b70cf9d7",
     ),
-    "psgmath/certified_classifier.py": (
-        "psgmath/certified_classifier.py",
+    "mathpsg/certified_classifier.py": (
+        "mathpsg/certified_classifier.py",
         "88ca499fe668085049b9be8ae5544ff27c380c8a6f0a3d530eaa59f88276efc1",
     ),
 }
@@ -38,6 +45,7 @@ def inventory_files() -> tuple[Path, ...]:
         for path in sorted(ROOT.rglob("*"))
         if path.is_file()
         and path.name not in EXCLUDED_FILES
+        and not any(part.endswith(".egg-info") for part in path.relative_to(ROOT).parts)
         and not EXCLUDED_PARTS.intersection(path.relative_to(ROOT).parts)
     )
 

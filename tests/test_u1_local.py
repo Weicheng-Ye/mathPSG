@@ -9,12 +9,12 @@ import json
 from typing import get_type_hints
 import unittest
 
-from psgmath.cochains import FiniteGroupTable
-from psgmath.gf2 import GF2Character
-from psgmath.torus import Phase
+from mathpsg.cochains import FiniteGroupTable
+from mathpsg.gf2 import GF2Character
+from mathpsg.torus import Phase
 
 
-_MODULE_AVAILABLE = importlib.util.find_spec("psgmath.u1_local") is not None
+_MODULE_AVAILABLE = importlib.util.find_spec("mathpsg.u1_local") is not None
 
 
 _D4_ELEMENTS = ("1", "r", "r2", "r3", "s", "rs", "r2s", "r3s")
@@ -203,7 +203,7 @@ class U1LocalModuleContractTests(unittest.TestCase):
     def test_verifier_api_and_runtime_annotations_are_resolvable(self) -> None:
         """Catch an absent verifier or a TYPE_CHECKING-only annotation NameError."""
 
-        api = importlib.import_module("psgmath.u1_local")
+        api = importlib.import_module("mathpsg.u1_local")
         self.assertTrue(hasattr(api, "verify_u1_local_skeleton"))
         factory_hints = get_type_hints(api.u1_local_skeleton)
         verifier_hints = get_type_hints(api.verify_u1_local_skeleton)
@@ -214,7 +214,7 @@ class U1LocalModuleContractTests(unittest.TestCase):
     def test_real_task5_table_digest_is_the_local_dependency_anchor(self) -> None:
         """Catch the temporary structural-table digest drifting from Task 5."""
 
-        api = importlib.import_module("psgmath.u1_local")
+        api = importlib.import_module("mathpsg.u1_local")
         table = FiniteGroupTable(
             group_id="C2-task5-v1",
             element_order=("1", "g"),
@@ -235,7 +235,7 @@ class U1LocalModuleContractTests(unittest.TestCase):
 class FourCosetPinMinusTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.api = importlib.import_module("psgmath.u1_local")
+        cls.api = importlib.import_module("mathpsg.u1_local")
         cls.cosets = (
             cls.api.NormalizerCoset(0, 0),
             cls.api.NormalizerCoset(1, 0),
@@ -350,7 +350,7 @@ class FourCosetPinMinusTests(unittest.TestCase):
 class U1LocalSkeletonTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.api = importlib.import_module("psgmath.u1_local")
+        cls.api = importlib.import_module("mathpsg.u1_local")
 
     def test_spatial_d4_pullback_keeps_raw_rho_and_exact_half_phase_support(self) -> None:
         """Catch q being used in place of separately retained rho in the pullback."""

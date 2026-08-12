@@ -8,24 +8,24 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from psgmath.bar_evaluator import (
+from mathpsg.bar_evaluator import (
     replay_gap_inclusion_batch_artifact,
     verify_gap_batch_launcher_execution,
 )
-from psgmath.catalogue import catalogue_record_order_key
-from psgmath.catalogue_loader import CatalogueIndex
-from psgmath.certified_classifier import make_z2_local_skeleton_evidence
-from psgmath.host_classifier_backend import (
+from mathpsg.catalogue import catalogue_record_order_key
+from mathpsg.catalogue_loader import CatalogueIndex
+from mathpsg.certified_classifier import make_z2_local_skeleton_evidence
+from mathpsg.host_classifier_backend import (
     HostNativeClassifierBackend,
     HostNativeSourceEvidence,
     assemble_host_ambient_artifact,
     build_host_source_evidence,
     verify_host_source_evidence,
 )
-from psgmath.live_catalogue import LiveCatalogue
-from psgmath.live_classify import resolve_occupancy_request
-from psgmath.local_gap import GapRuntimeError, probe_gap
-from psgmath.query import (
+from mathpsg.live_catalogue import LiveCatalogue
+from mathpsg.live_classify import resolve_occupancy_request
+from mathpsg.local_gap import GapRuntimeError, probe_gap
+from mathpsg.query import (
     make_diagnostic_verified_catalogue,
     resolve_request_orbits,
 )
@@ -150,7 +150,7 @@ class HostSourceEvidenceTests(unittest.TestCase):
     def test_forged_runtime_is_rejected_before_gap_evidence_execution(self) -> None:
         forged = replace(self.runtime, gap_version="0.0")
         with patch(
-            "psgmath.host_classifier_backend.build_evidence",
+            "mathpsg.host_classifier_backend.build_evidence",
             side_effect=AssertionError("Task4 must not run"),
         ) as task4:
             with self.assertRaises(GapRuntimeError):
@@ -242,7 +242,7 @@ class HostSourceEvidenceTests(unittest.TestCase):
             plans[0].plan.verify(bytes(attacked))
 
         with self.assertRaisesRegex(ValueError, "factory-issued"):
-            from psgmath.host_classifier_backend import verify_host_ambient_artifact
+            from mathpsg.host_classifier_backend import verify_host_ambient_artifact
 
             verify_host_ambient_artifact(copy.copy(ambient))
 

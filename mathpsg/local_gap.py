@@ -168,7 +168,7 @@ def host_provenance(runtime: GapRuntime) -> dict[str, object]:
             "packages": dict(runtime.packages),
             "version": runtime.gap_version,
         },
-        "package": {"name": "mathpsg-standalone", "version": __version__},
+        "package": {"name": "mathpsg", "version": __version__},
         "python": {
             "executable": sys.executable,
             "implementation": platform.python_implementation(),
