@@ -153,6 +153,8 @@ class LiveCatalogue:
             raise CatalogueError("action bindings are malformed")
         groups: dict[str, Mapping[str, str]] = {}
         expected_fields = {
+            "action_provenance_digest",
+            "generator_input_digest",
             "space_group_action_sha256",
         }
         for number, binding in value["groups"].items():
@@ -241,6 +243,13 @@ class LiveCatalogue:
         action_digest = _sha256(canonical_json(records[0].space_group_action))
         if (
             action_digest != expected_action["space_group_action_sha256"]
+            or any(
+                record.action_provenance_digest
+                != expected_action["action_provenance_digest"]
+                or record.provenance["generator_input_digest"]
+                != expected_action["generator_input_digest"]
+                for record in records
+            )
         ):
             raise CatalogueError("catalogue action provenance binding differs")
         self._require_display_coverage(records)
