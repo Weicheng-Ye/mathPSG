@@ -16,6 +16,7 @@ from tests.support.physical_results import (
     forbidden_public_paths,
     load_physical_cases,
     result_field_names,
+    thaw,
 )
 
 
@@ -28,6 +29,7 @@ MINIMAL_SIGNATURE = (
     "time_reversal",
     "setting",
     "details",
+    "cochain",
     "gap",
     "timeout",
 )
@@ -98,6 +100,68 @@ class PhysicalOracleTests(unittest.TestCase):
         self.assertIsNone(result.details)
 
 
+class CochainPublicContractTests(unittest.TestCase):
+    def test_z2_cochain_basis_is_opt_in_and_immutable(self) -> None:
+        result = mathpsg.classify(
+            1,
+            ["a"],
+            igg="Z2",
+            cochain=True,
+            timeout=900,
+        )
+
+        self.assertEqual(result.class_count, 8)
+        self.assertIsNotNone(result.details)
+        assert result.details is not None
+        cochain = result.details["strata"][0]["cochain"]
+        self.assertEqual(len(cochain["basis"]), 3)
+        self.assertEqual(
+            len(cochain["basepoint"]),
+            len(cochain["coordinate_blocks"]["ambient_degree_2"])
+            + sum(
+                len(block["basis"])
+                for block in cochain["coordinate_blocks"]["local_degree_1"]
+            ),
+        )
+        with self.assertRaises(TypeError):
+            cochain["basepoint"] = ()
+        plain = thaw(result)
+        self.assertEqual(forbidden_public_paths(plain), ())
+        json.dumps(plain, allow_nan=False)
+
+    def test_continuous_u1_reports_free_and_torsion_cochain_generators(self) -> None:
+        result = mathpsg.classify(
+            1,
+            ["a"],
+            igg="U1",
+            cochain=True,
+            timeout=900,
+        )
+
+        self.assertTrue(result.continuous)
+        self.assertIsNone(result.class_count)
+        self.assertIsNotNone(result.details)
+        assert result.details is not None
+        for summary, detail in zip(
+            result.summaries,
+            result.details["strata"],
+            strict=True,
+        ):
+            generators = detail["cochain"]["basis"]
+            self.assertEqual(
+                sum(generator["kind"] == "free" for generator in generators),
+                summary["free_rank"],
+            )
+            self.assertEqual(
+                tuple(
+                    generator["order"]
+                    for generator in generators
+                    if generator["kind"] == "torsion"
+                ),
+                summary["torsion_orders"],
+            )
+
+
 class ResidualQuotientTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -107,6 +171,7 @@ class ResidualQuotientTests(unittest.TestCase):
             igg="Z2",
             time_reversal=True,
             details=True,
+            cochain=True,
             timeout=900,
         )
         cls.u1 = mathpsg.classify(
@@ -114,6 +179,7 @@ class ResidualQuotientTests(unittest.TestCase):
             ["a"],
             igg="U1",
             details=True,
+            cochain=True,
             timeout=900,
         )
 
@@ -136,6 +202,15 @@ class ResidualQuotientTests(unittest.TestCase):
             ),
             9,
         )
+        for summary, detail in zip(
+            self.z2.summaries,
+            self.z2.details["strata"],
+            strict=True,
+        ):
+            self.assertEqual(
+                1 << len(detail["cochain"]["basis"]),
+                summary["unframed_finite_cardinality"],
+            )
 
     def test_finite_u1_result_runs_the_weyl_quotient(self) -> None:
         self.assertEqual(self.u1.class_count, 84)
@@ -162,6 +237,19 @@ class ResidualQuotientTests(unittest.TestCase):
             ),
             1,
         )
+        for summary, detail in zip(
+            self.u1.summaries,
+            self.u1.details["strata"],
+            strict=True,
+        ):
+            self.assertEqual(
+                tuple(
+                    generator["order"]
+                    for generator in detail["cochain"]["basis"]
+                    if generator["kind"] == "torsion"
+                ),
+                summary["torsion_orders"],
+            )
 
 
 class U1TimeReversalTests(unittest.TestCase):

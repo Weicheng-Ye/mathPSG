@@ -60,6 +60,7 @@ mathpsg.classify(
     time_reversal=False,
     setting=None,
     details=False,
+    cochain=False,
     gap="gap",
     timeout=300,
 )
@@ -75,6 +76,7 @@ mathpsg.classify(
 | `time_reversal` | Whether to include onsite time reversal. |
 | `setting` | A specific space-group setting, or `None` when the requested labels select a unique setting. |
 | `details` | Include the physical presentation of every nonempty solution stratum when truthy. |
+| `cochain` | Add an explicit affine basepoint and one representative per mathematical solution-basis generator to every detail stratum. This also enables `details`. |
 | `gap` | GAP executable name or path. |
 | `timeout` | Maximum time in seconds for each GAP invocation, not an overall calculation deadline. |
 
@@ -96,7 +98,7 @@ attributes:
 | `class_count` | `int \| None` | Number of unframed PSG classes when the quotient is finite; `None` if continuous families occur. |
 | `continuous` | `bool` | Whether the final quotient contains at least one continuous family. |
 | `summaries` | tuple of immutable mappings | One compact physical summary for each nonempty solution stratum. |
-| `details` | immutable mapping or `None` | Full physical solution presentations when `details=True`; otherwise `None`. |
+| `details` | immutable mapping or `None` | Full physical solution presentations when `details=True` or `cochain=True`; otherwise `None`. |
 
 The result does not contain runtime measurements, certification status,
 certificate hashes, source hashes, cache metadata, backend objects, replay
@@ -186,6 +188,37 @@ Each compact-U1 detail contains:
 - `torsion_orders`;
 - `formal_parameters`, named `phi0`, `phi1`, ...; and
 - `finite_class_count` when `free_rank == 0`.
+
+### Cochain basis representatives
+
+With `cochain=True`, every detail stratum also contains a `cochain` mapping.
+Its coordinate blocks use the relative-complex order
+
+```text
+ambient C^2, local C^1 for orbit 0, local C^1 for orbit 1, ...
+```
+
+The occupied-orbit index is explicit, so repeated Wyckoff labels remain
+distinct. For Z2, `basepoint` is one affine solution and each order-two basis
+entry contains a homogeneous `direction` and the corresponding affine
+`representative`. Binary combinations of these directions give one
+representative of every unframed residual-equivalence class. The sibling
+`quotient_basis` remains the framed basis before residual translations.
+
+For U1, `basepoint_phases` and `weyl_shift_phases` are exact reduced phase
+strings. A free basis entry supplies the integer coefficient vector of a named
+parameter, while a torsion entry supplies its cyclic order, exact phase
+direction, and affine representative. Thus every framed cochain has the form
+
+```text
+z(phi,t) = z0 + sum_i phi_i f_i + sum_j t_j tau_j  (mod 1).
+```
+
+The U1 Weyl quotient is generally not an abelian group, so the reported basis
+is the framed compact-torsor basis together with the shift in the Weyl action
+`z -> -z + weyl_shift`; it is not described as a basis of the final unframed
+orbit space. The output contains no
+certificates, hashes, replay records, or cached data.
 
 ## Examples
 

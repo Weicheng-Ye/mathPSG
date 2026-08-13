@@ -14,6 +14,7 @@ import itertools
 from pathlib import Path
 from typing import Sequence, cast
 
+from .cochain import RelativeCochainCoordinates
 from .direct_algebra import (
     bar_chain_cochain_value,
     twist_group_ring_matrix,
@@ -52,6 +53,8 @@ from .torus import (
 class Z2PhysicalStratum:
     basepoint: tuple[int, ...]
     quotient_basis: tuple[tuple[int, ...], ...]
+    residual_shifts: tuple[tuple[int, ...], ...]
+    coordinates: RelativeCochainCoordinates
     unframed_class_count: int
 
     @property
@@ -68,6 +71,7 @@ class U1PhysicalStratum:
     rho_bits: tuple[int, ...]
     solution: TorusSolution
     weyl_shift: tuple[Phase, ...]
+    coordinates: RelativeCochainCoordinates
 
     @property
     def continuous(self) -> bool:
@@ -331,6 +335,10 @@ def _z2_strata(
     restrictions = tuple(
         _restriction(inclusion, ring="gf2") for inclusion in inclusions
     )
+    coordinates = RelativeCochainCoordinates(
+        tuple(ambient.resolution.basis[2]),
+        tuple(tuple(inclusion.source_resolution.basis[1]) for inclusion in inclusions),
+    )
     strata: list[Z2PhysicalStratum] = []
     for skeletons in itertools.product(*local_rows):
         defects = tuple(
@@ -369,6 +377,8 @@ def _z2_strata(
             Z2PhysicalStratum(
                 solution.basepoint,
                 quotient.representatives,
+                residual_shifts,
+                coordinates,
                 _z2_orbit_count(len(quotient.representatives), residual_shifts),
             )
         )
@@ -428,6 +438,10 @@ def _u1_strata(
     inclusions: tuple[DirectInclusion, ...],
 ) -> tuple[U1PhysicalStratum, ...]:
     basis, _ = direct_character_context(ambient)
+    coordinates = RelativeCochainCoordinates(
+        tuple(ambient.resolution.basis[2]),
+        tuple(tuple(inclusion.source_resolution.basis[1]) for inclusion in inclusions),
+    )
     strata: list[U1PhysicalStratum] = []
     for sector_index, rho in enumerate(basis):
         skeletons = tuple(row[sector_index] for row in local_rows)
@@ -481,7 +495,7 @@ def _u1_strata(
             shift[start:stop] = local_shift
         strata.append(
             U1PhysicalStratum(
-                tuple(rho.bits), solution, tuple(shift)
+                tuple(rho.bits), solution, tuple(shift), coordinates
             )
         )
     return tuple(strata)

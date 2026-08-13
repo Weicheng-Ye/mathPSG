@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 
+from .cochain import u1_basis_presentation, z2_basis_presentation
 from .compute import (
     PhysicalClassification,
     U1PhysicalStratum,
@@ -143,33 +144,49 @@ def _u1_summary(stratum: U1PhysicalStratum) -> dict[str, object]:
 def _details(
     value: PhysicalClassification,
     summaries: tuple[dict[str, object], ...],
+    *,
+    labels: tuple[str, ...],
+    cochain: bool,
 ) -> dict[str, object]:
     strata: list[dict[str, object]] = []
     for stratum, summary in zip(value.framed_strata, summaries):
         if isinstance(stratum, Z2PhysicalStratum):
-            strata.append(
-                {
-                    **summary,
-                    "basepoint": tuple(stratum.basepoint),
-                    "quotient_basis": tuple(
-                        tuple(vector) for vector in stratum.quotient_basis
-                    ),
-                }
-            )
+            detail: dict[str, object] = {
+                **summary,
+                "basepoint": tuple(stratum.basepoint),
+                "quotient_basis": tuple(
+                    tuple(vector) for vector in stratum.quotient_basis
+                ),
+            }
+            if cochain:
+                detail["cochain"] = z2_basis_presentation(
+                    basepoint=stratum.basepoint,
+                    quotient_basis=stratum.quotient_basis,
+                    residual_shifts=stratum.residual_shifts,
+                    coordinates=stratum.coordinates,
+                    labels=labels,
+                )
+            strata.append(detail)
         else:
-            strata.append(
-                {
-                    **summary,
-                    "rho_bits": tuple(stratum.rho_bits),
-                    "basepoint_phases": tuple(
-                        str(phase) for phase in stratum.solution.basepoint
-                    ),
-                    "formal_parameters": tuple(
-                        f"phi{index}"
-                        for index in range(stratum.solution.group.free_rank)
-                    ),
-                }
-            )
+            detail = {
+                **summary,
+                "rho_bits": tuple(stratum.rho_bits),
+                "basepoint_phases": tuple(
+                    str(phase) for phase in stratum.solution.basepoint
+                ),
+                "formal_parameters": tuple(
+                    f"phi{index}"
+                    for index in range(stratum.solution.group.free_rank)
+                ),
+            }
+            if cochain:
+                detail["cochain"] = u1_basis_presentation(
+                    solution=stratum.solution,
+                    weyl_shift=stratum.weyl_shift,
+                    coordinates=stratum.coordinates,
+                    labels=labels,
+                )
+            strata.append(detail)
     quotient = value.quotient
     return {
         "strata": tuple(strata),
@@ -192,6 +209,7 @@ def classify(
     time_reversal=False,
     setting=None,
     details=False,
+    cochain=False,
     gap="gap",
     timeout=300,
 ) -> ClassificationResult:
@@ -244,7 +262,17 @@ def classify(
         "time_reversal": bool(time_reversal),
         "wps": labels,
     }
-    detail_value = _details(physical, summaries) if bool(details) else None
+    include_cochain = bool(cochain)
+    detail_value = (
+        _details(
+            physical,
+            summaries,
+            labels=labels,
+            cochain=include_cochain,
+        )
+        if bool(details) or include_cochain
+        else None
+    )
     return ClassificationResult(
         request=_freeze(request_mapping),  # type: ignore[arg-type]
         class_count=physical.class_count,
